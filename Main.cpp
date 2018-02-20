@@ -56,6 +56,14 @@ int main(int argc, char const* argv[])
 	<< "Starting app..." << std::endl;
 	
 	// At this point all the cmd startup is done and it is time for the user to start issuing commands, the server to make files available, and the downloaders to download. 
+	User user(directory);
+	DownloadManager manager(downThreads);
+	Server server(serverThreads);
+	
+	user.setDownloadManager(&manager);
+	user.setServer(&server);
+	manager.setUser(&user);
+	server.setUser(&user);
 	
 	return 0;
 }

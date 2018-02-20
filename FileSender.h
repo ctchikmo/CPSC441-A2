@@ -19,7 +19,7 @@ class FileSender
 		
 	private:
 		Server* server;
-		int threadIndex -1;
+		int threadIndex = -1;
 		
 		void awaitRequest();
 	
