@@ -25,12 +25,12 @@ class DownloadManager
 		DownloadManager(int threads); // Thread pooling and new thread for the manager is done here. 
 		~DownloadManager();
 		
-		std::string fileList(std::string ip, int port) // Gets the file list from the ip/port. Delivers message to user on completion
+		std::string fileList(std::string ip, int port); // Gets the file list from the ip/port. Delivers message to user on completion
 		std::string download(std::string ip, int port, std::string filename); // Attempts to download the given file from the desired location. Stores file in directory and notifies user once done. 
 		void reclaim(FileDownloader* fileDownloader); // Adds the downloader back to the queue, if the request queue is not empty it immediately takes the next request.
 		
-		void setUser(*User user);
-		*User getUser();
+		void setUser(User* user);
+		User* getUser();
 		
 		std::string details(); // Called on the User thread, returns total number of download threads, and how many in use + the files they are getting. 
 		

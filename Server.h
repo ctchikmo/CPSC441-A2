@@ -10,7 +10,7 @@ class Server
 		Server(int threads);
 		~Server();
 		
-		void setUser(*User user);
+		void setUser(User* user);
 		
 		private:
 			User* user;
