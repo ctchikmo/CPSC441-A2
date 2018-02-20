@@ -5,6 +5,10 @@
 #include <string>
 #include <unistd.h>
 
+#include "User.h"
+#include "DownloadManager.h"
+#include "Server.h"
+
 // There are 4 arguments: host port, directory to store/host files, Number of Download threads (1 file per thread), Number of Server threads (1 file per thread)
 int main(int argc, char const* argv[])
 {
@@ -51,9 +55,11 @@ int main(int argc, char const* argv[])
 	<< "Server Threads: " << serverThreads << std::endl 
 	<< "Starting app..." << std::endl;
 	
+	/*
 	std::ofstream outfile(directory.append("/test.txt"));
 	outfile << "testing" << std::endl;
 	outfile.close();
+	*/
 	
 	// At this point all the cmd startup is done and it is time for the user to start issuing commands, the server to make files available, and the downloaders to download. 
 	
