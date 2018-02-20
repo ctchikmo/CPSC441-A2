@@ -5,11 +5,11 @@
 #include <vector>
 #include <string>
 
-#define CMD_HELP "help"
-#define CMD_HELP_SHORT "h"
+#define CMD_HELP 		"help"
+#define CMD_HELP_SHORT 	"h"
 
 class DownloadManager; // Class forward as #include won't work (they use each other)
-class Server; // Class forward as #include won't work (they use each other)
+class Server; // Class forward as better than #include here
 
 // User runs on the main thread and keeps it alive by staying in an input blocking loop
 class User

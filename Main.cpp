@@ -55,12 +55,6 @@ int main(int argc, char const* argv[])
 	<< "Server Threads: " << serverThreads << std::endl 
 	<< "Starting app..." << std::endl;
 	
-	/*
-	std::ofstream outfile(directory.append("/test.txt"));
-	outfile << "testing" << std::endl;
-	outfile.close();
-	*/
-	
 	// At this point all the cmd startup is done and it is time for the user to start issuing commands, the server to make files available, and the downloaders to download. 
 	
 	return 0;
