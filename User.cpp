@@ -36,7 +36,7 @@ void User::beginInputLoop()
 	}
 	pthread_mutex_unlock(server->getReadyMutex());
 	
-	std::cout << "You can begin entering commands now, type 'Help' to bring up the list of commands." << std::endl;
+	std::cout << "You can begin entering commands now, type 'help' to bring up the list of commands.\r\n(No caps or anything fancy for the commands)" << std::endl;
 }
 
 void User::bufferMessage(std::string message)
@@ -51,7 +51,35 @@ std::string& User::getDirectory()
 
 void User::handleCommand(std::string input)
 {
+	char first = input[0];
+	char sec = input[1];
 	
+	if(first == 'm' && sec == 'm')
+		messageMode();
+	
+	else if(first == 'v' && sec == 'm')
+		viewMessages();
+	
+	else if(first == 'd' && sec == 'd')
+		details();
+	
+	else if(first == 's' && sec == 'd')
+		serverDetails();
+	
+	else if(first == 'f' && sec == 'l')
+		fileList(input);
+	
+	else if(first == 'd' && sec == 'f')
+		download(input);
+	
+	else if(first == 'h' && sec == 'e' && input[2] == 'l' && input[3] == 'p')
+		help();
+	
+	else if(first == 'q' && sec == 'q')
+		quit();
+	
+	else
+		std::cout << "No command recognized." << std::endl;
 }
 
 void User::help()
@@ -62,7 +90,8 @@ void User::help()
 	<< "Type in 'dd' to view the Download Manager details (thread count and ongoing downloads)." << std::endl
 	<< "Type in 'sd' to view the Server details (thread count, your ip, port, files hosted)." << std::endl
 	<< "Type in 'fl <host ip> <host port>' to view the list of files at the address." << std::endl
-	<< "Type in 'dl <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
+	<< "Type in 'df <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
+	<< "Type in 'qq' to quit" << std::endl
 	<< std::endl;
 }
 

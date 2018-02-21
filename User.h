@@ -40,8 +40,8 @@ class User
 		void viewMessages(); // Displays all currently buffered messages. 
 		void details(); // Shows client details (File Downloader thread count, File Downloaders in use(each in use displays file fetching))
 		void serverDetails(); // Shows server details (File Sender thread count, Files hosted (whats in file folder), host port, host ip)
-		void fileList(std::string ip, std::string port); // Lists the files available at the input ip and port (this can be used on the own machines server, but serverDetails is preffered.)
-		void download(std::string ip, std::string port, std::string filename); // Attempts to download the given file from the desired location. 
+		void fileList(std::string ip); // Lists the files available at the input ip and port (this can be used on the own machines server, but serverDetails is preffered.)
+		void download(std::string ip); // Attempts to download the given file from the desired location. 
 		void quit();
 };
 
