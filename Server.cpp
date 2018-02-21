@@ -121,7 +121,10 @@ void* Server::startServerThread(void* server)
 
 void Server::quit()
 {
-	
+	flag_running = false;
+	for(int i = 0; i < numThreads; i++)
+		if(inProgress[i] != NULL)
+			inProgress[i]->quit();
 }
 
 

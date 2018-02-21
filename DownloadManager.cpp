@@ -131,6 +131,9 @@ void* DownloadManager::startDownloadManagerThread(void* downloadManager)
 void DownloadManager::quit()
 {
 	flag_running = false;
+	for(int i = 0; i < numThreads; i++)
+		if(inProgress[i] != NULL)
+			inProgress[i]->quit();
 }
 
 

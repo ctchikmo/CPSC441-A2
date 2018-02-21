@@ -56,7 +56,14 @@ void User::handleCommand(std::string input)
 
 void User::help()
 {
-	
+	std::cout
+	<< "Type in 'mm' to turn on message mode. In this mode you can not enter commands, but all incoming messages are displayed immediately." << std::endl
+	<< "Type in 'vm' to view currently buffered messages." << std::endl
+	<< "Type in 'dd' to view the Download Manager details (thread count and ongoing downloads)." << std::endl
+	<< "Type in 'sd' to view the Server details (thread count, your ip, port, files hosted)." << std::endl
+	<< "Type in 'fl <host ip> <host port>' to view the list of files at the address." << std::endl
+	<< "Type in 'dl <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
+	<< std::endl;
 }
 
 void User::messageMode()
@@ -83,19 +90,20 @@ void User::serverDetails()
 	std::cout << std::endl;
 }
 
-void User::fileList(std::string ip, std::string port)
+void User::fileList(std::string input)
 {
 	
 }
 
-void User::download(std::string ip, std::string port, std::string filename)
+void User::download(std::string input)
 {
 	
 }
 
 void User::quit()
 {
-	
+	downloadManager->quit();
+	server->quit();
 }
 
 

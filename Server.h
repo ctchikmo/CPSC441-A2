@@ -41,6 +41,8 @@ class Server
 		FileSender** inProgress; // Array which is the same size as the number of threads. When a thread is created it is given a unique index corresponding to the position it is stored in. Required for quit(). 
 		std::queue<FileSender*> senders;
 		
+		bool flag_running = true;
+		
 		void startupServer();
 		static void* startServerThread(void* server); // Called from this classes ctor when creating its own pthread. This is only called once for Server
 };
