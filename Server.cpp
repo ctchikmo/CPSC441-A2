@@ -79,11 +79,10 @@ void Server::details()
 	std::cout << "Total file senders: " << numThreads << std::endl;
 	std::cout << "Host port: " << port << std::endl;
 	
-	std::cout << "Hosted files: " << std::endl;
+	std::cout << "Hosted files: (items with no extension are folders)" << std::endl;
 	std::vector<std::string> filenames = listFilenames();
 	for(int i = 0; i < (int)filenames.size(); i++)
 		std::cout << " - " << filenames[i] << std::endl;
-	std::cout << std::endl;
 }
 
 // Thanks @ https://stackoverflow.com/questions/306533/how-do-i-get-a-list-of-files-in-a-directory-in-c answer by Chris Kloberdanz
@@ -93,7 +92,7 @@ std::vector<std::string> Server::listFilenames()
 	struct dirent *epdf;
 	std::vector<std::string> rv;
 
-	dpdf = opendir("./");
+	dpdf = opendir((user->getDirectory()).c_str());
 	int count = 0; // We skip the first 2 files as they are the directory ones: . and ..
 	
 	if(dpdf != NULL)
@@ -105,8 +104,11 @@ std::vector<std::string> Server::listFilenames()
 			else
 				count++;
 		}
+		
+		closedir(dpdf);
 	}
-	closedir(dpdf);
+	else
+		std::cout << "Check the directory you entered, it may be invalid." << std::endl;
 	
 	return rv;
 }
