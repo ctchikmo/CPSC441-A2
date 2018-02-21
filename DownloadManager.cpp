@@ -124,7 +124,6 @@ void* DownloadManager::startDownloadManagerThread(void* downloadManager)
 	DownloadManager* dm = (DownloadManager*)downloadManager;
 	dm->requestConsumer();
 	
-	delete dm;
 	return NULL;
 }
 

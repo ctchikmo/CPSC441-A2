@@ -108,7 +108,6 @@ void* Server::startServerThread(void* server)
 	Server* s = (Server*)server;
 	s->startupServer();
 	
-	delete s;
 	return NULL;
 }
 
