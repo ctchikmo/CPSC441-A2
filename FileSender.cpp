@@ -28,12 +28,36 @@ int FileSender::getThreadIndex()
 	return threadIndex;
 }
 
-void FileSender::beginRequest(int clientSocket)
+void FileSender::beginRequest(int cls)
 {
+	clientSocket = cls;
 	
+	pthread_mutex_lock(&requestMutex);
+	{
+		pthread_cond_signal(&requestCond);
+	}
+	pthread_mutex_unlock(&requestMutex);
 }
 
 void FileSender::awaitRequest()
+{
+	while(flag_running)
+	{
+		pthread_mutex_lock(&requestMutex);
+		{
+			server->reclaim(this, threadIndex);
+			
+			while(clientSocket == -1)
+				pthread_cond_wait(&requestCond, &requestMutex);
+		}
+		pthread_mutex_unlock(&requestMutex);
+		
+		handleRequest();
+		clientSocket = -1;
+	}
+}
+
+void FileSender::handleRequest()
 {
 	
 }
@@ -49,7 +73,7 @@ void* FileSender::startFileSenderThread(void* fileSender)
 
 void FileSender::quit()
 {
-	
+	flag_running = false;
 }
 
 
