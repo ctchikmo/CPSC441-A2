@@ -1,11 +1,10 @@
 #ifndef FileDownloader_H
 #define FileDownloader_H
 
+#include "Request.h"
+
 #include <pthread.h>
 #include <string>
-
-#define CMD_LIST 		0
-#define CMD_DOWNLOAD 	1
 
 /*
 	std::ofstream outfile(directory.append("/test.txt"));
@@ -22,14 +21,25 @@ class FileDownloader
 		FileDownloader(DownloadManager* downloadManager, int threadIndex);
 		~FileDownloader();
 		
-		void fetchFileList(std::string ip, int port);
-		void handleDownload(std::string ip, int port, std::string filename);
+		void beginRequest(Request requst);
+		void fetchFileList();
+		void handleDownload();
 		
-		std::string details(); // Called via the user thread
+		int getThreadIndex();
+		void details(); // Called via the user thread
+		
+		void quit(); // Called from the user thread
 		
 	private:
+		pthread_t thread;
+		pthread_mutex_t requestMutex;
+		pthread_cond_t requestCond;
+	
 		DownloadManager* downloadManager;
 		int threadIndex = -1;
+		
+		bool flag_running = true;
+		Request request; // A port value of >= 0 means good, -1 means startup, -2 means finished request.
 		
 		void awaitRequest();
 		

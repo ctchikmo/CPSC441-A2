@@ -1,13 +1,13 @@
 /// We are doing linux only, so no need to worry about selecting the proper cd finding method depending on OS. 
+#include "User.h"
+#include "DownloadManager.h"
+#include "Server.h"
 
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <unistd.h>
-
-#include "User.h"
-#include "DownloadManager.h"
-#include "Server.h"
+#include <stdlib.h>
 
 // There are 4 arguments: host port, directory to store/host files, Number of Download threads (1 file per thread), Number of Server threads (1 file per thread)
 int main(int argc, char const* argv[])
@@ -53,17 +53,20 @@ int main(int argc, char const* argv[])
 	<< "Directory: " << directory << std::endl 
 	<< "Download Threads: " << downThreads << std::endl 
 	<< "Server Threads: " << serverThreads << std::endl 
-	<< "Starting app..." << std::endl;
+	<< "Starting app..." << std::endl << std::endl;
 	
 	// At this point all the cmd startup is done and it is time for the user to start issuing commands, the server to make files available, and the downloaders to download. 
+	// Note that all the constructors take place on this main thread, so no need to use the user message service. 
 	User user(directory);
 	DownloadManager manager(downThreads);
-	Server server(serverThreads);
+	Server server(hostPort, serverThreads);
 	
 	user.setDownloadManager(&manager);
 	user.setServer(&server);
 	manager.setUser(&user);
 	server.setUser(&user);
+	
+	user.beginInputLoop();
 	
 	return 0;
 }

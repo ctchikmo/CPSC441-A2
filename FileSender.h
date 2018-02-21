@@ -13,11 +13,17 @@ class FileSender
 		FileSender(Server* server, int threadIndex);
 		~FileSender();
 		
-		void handleRequest(int clientSocket);
+		int getThreadIndex();
 		
-		std::string details(); // Called via the user thread
+		void beginRequest(int clientSocket);
+		
+		void quit(); // Called from the user thread
 		
 	private:
+		pthread_t thread;
+		pthread_mutex_t requestMutex;
+		pthread_cond_t requestCond;
+	
 		Server* server;
 		int threadIndex = -1;
 		

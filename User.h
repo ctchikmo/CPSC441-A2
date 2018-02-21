@@ -23,7 +23,7 @@ class User
 		void beginInputLoop();
 		void bufferMessage(std::string message); // Stores the message in the message buffer. These messages are displayed using the message cmd, or if left in messageMode they are displayed once recieved.
 		
-		std::string getDirectory();
+		std::string& getDirectory();
 		
 	private:
 		pthread_mutex_t messageMutex;
@@ -42,7 +42,7 @@ class User
 		void serverDetails(); // Shows server details (File Sender thread count, Files hosted (whats in file folder), host port, host ip)
 		void fileList(std::string ip, std::string port); // Lists the files available at the input ip and port (this can be used on the own machines server, but serverDetails is preffered.)
 		void download(std::string ip, std::string port, std::string filename); // Attempts to download the given file from the desired location. 
-		void exit();
+		void quit();
 };
 
 #endif
