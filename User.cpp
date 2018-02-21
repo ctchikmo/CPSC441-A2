@@ -35,13 +35,23 @@ void User::beginInputLoop()
 			pthread_cond_wait(server->getReadyCond(), server->getReadyMutex());
 	}
 	pthread_mutex_unlock(server->getReadyMutex());
+	std::cout << std::endl << "Server up and running" << std::endl << std::endl;
 	
-	std::cout << "You can begin entering commands now, type 'help' to bring up the list of commands.\r\n(No caps or anything fancy for the commands)" << std::endl;
+	std::cout << "You can begin entering commands now, type 'help' to bring up the list of commands." << std::endl << "(No caps or anything fancy for the commands)" << std::endl;
 }
 
 void User::bufferMessage(std::string message)
 {
-	
+	if(flag_messageMode)
+		std::cout << message << std::endl;
+	else
+	{
+		pthread_mutex_lock(&messageMutex);
+		{
+			messageBuffer.push_back(message);
+		}
+		pthread_mutex_unlock(&messageMutex);
+	}
 }
 
 std::string& User::getDirectory()
@@ -85,24 +95,33 @@ void User::handleCommand(std::string input)
 void User::help()
 {
 	std::cout
-	<< "Type in 'mm' to turn on message mode. In this mode you can not enter commands, but all incoming messages are displayed immediately." << std::endl
+	<< "Type in 'mm' to turn on message mode. All incoming messages are displayed immediately. Also displays any buffered messages." << std::endl
 	<< "Type in 'vm' to view currently buffered messages." << std::endl
 	<< "Type in 'dd' to view the Download Manager details (thread count and ongoing downloads)." << std::endl
 	<< "Type in 'sd' to view the Server details (thread count, your ip, port, files hosted)." << std::endl
 	<< "Type in 'fl <host ip> <host port>' to view the list of files at the address." << std::endl
 	<< "Type in 'df <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
-	<< "Type in 'qq' to quit" << std::endl
+	<< "Type in 'qq' to quit (If in message mode typing qq quits message mode.)" << std::endl
 	<< std::endl;
 }
 
 void User::messageMode()
 {
-	
+	flag_messageMode = true;
+	viewMessages();
 }
 
 void User::viewMessages()
 {
-	
+	pthread_mutex_lock(&messageMutex);
+	{
+		for(int i = 0; i < (int)messageBuffer.size(); i++)
+		{
+			std::cout << messageBuffer.back() << std::endl;
+			messageBuffer.pop_back();
+		}
+	}
+	pthread_mutex_unlock(&messageMutex);
 }
 
 void User::details()
@@ -121,18 +140,60 @@ void User::serverDetails()
 
 void User::fileList(std::string input)
 {
+	int endOfIP = input.find(' ', 3);
+	int endOfPort = input.find(' ', endOfIP + 1);
 	
+	std::string hostIP = input.substr(3, (endOfIP - 3));
+	std::string hostPort = input.substr(endOfIP + 1, (endOfPort - endOfIP - 1));
+	
+	int port;
+	
+	try
+	{
+		port = std::stoi(hostPort);
+		
+		// This only runs if the exception is not thrown.
+		downloadManager->fileList(hostIP, port);
+	}
+	catch(...)
+	{
+		std::cout << "Error converting hostport to an interger." << std::endl;
+	}
 }
 
 void User::download(std::string input)
 {
+	int endOfIP = input.find(' ', 3);
+	int endOfPort = input.find(' ', endOfIP + 1);
 	
+	std::string hostIP = input.substr(3, (endOfIP - 3));
+	std::string hostPort = input.substr(endOfIP + 1, (endOfPort - endOfIP - 1));
+	std::string filename = input.substr(endOfPort + 1, std::string::npos);
+	
+	int port;
+	
+	try
+	{
+		port = std::stoi(hostPort);
+		
+		// This only runs if the exception is not thrown.
+		downloadManager->download(hostIP, port, filename);
+	}
+	catch(...)
+	{
+		std::cout << "Error converting hostport to an interger." << std::endl;
+	}
 }
 
 void User::quit()
 {
-	downloadManager->quit();
-	server->quit();
+	if(flag_messageMode)
+		flag_messageMode = false;
+	else
+	{
+		downloadManager->quit();
+		server->quit();
+	}
 }
 
 

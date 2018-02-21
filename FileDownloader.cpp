@@ -64,9 +64,11 @@ void FileDownloader::awaitRequest()
 	{
 		pthread_mutex_lock(&requestMutex);
 		{
-			if(request.port != -1)
+			if(request.port == -1)
+				downloadManager->reclaim(this, threadIndex, "Downloader Thread Started");
+			else
 				downloadManager->reclaim(this, threadIndex, "Done download for " + request.filename + ", from: " + request.ip + ", on port: " + std::to_string(request.port));
-			
+		
 			while(request.port == -1 || request.port == -2)
 				pthread_cond_wait(&requestCond, &requestMutex);
 		}

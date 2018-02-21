@@ -28,6 +28,7 @@ class User
 	private:
 		pthread_mutex_t messageMutex;
 	
+		bool flag_messageMode = false;
 		std::vector<std::string> messageBuffer;
 		std::string directory;
 	

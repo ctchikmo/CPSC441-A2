@@ -4,7 +4,9 @@
 #include <iostream>
 #include <stdlib.h>
 
-FileSender::FileSender(Server* server, int threadIndex)
+FileSender::FileSender(Server* server, int threadIndex):
+server(server),
+threadIndex(threadIndex)
 {
 	pthread_mutex_init(&requestMutex, NULL);
 	pthread_cond_init(&requestCond, NULL);

@@ -50,17 +50,10 @@ Server::~Server()
 	delete[] inProgress;
 }
 
+// The accessor of this method must account for the mutexes and conditions (the method itself does not as it is used as a check from within this mutex, which would cause a deadlock if both did)
 bool Server::isReady()
 {
-	bool rv = false;
-	
-	pthread_mutex_lock(&readyMutex);
-	{
-		rv = flag_ready;
-	}
-	pthread_mutex_unlock(&readyMutex);
-	
-	return rv;
+	return flag_ready;
 }
 
 void Server::setUser(User* user)

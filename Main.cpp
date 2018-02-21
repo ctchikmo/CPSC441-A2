@@ -18,10 +18,40 @@ int main(int argc, char const* argv[])
 		exit(1);
 	}
 	
-	int hostPort = std::stoi(argv[1]);
+	int hostPort;
 	std::string directory(argv[2]);
-	int downThreads = std::stoi(argv[3]);
-	int serverThreads = std::stoi(argv[4]);
+	int downThreads;
+	int serverThreads;
+	
+	try
+	{
+		hostPort = std::stoi(argv[1]);
+	}
+	catch(...) // ... Means all exceptions
+	{
+		std::cout << "Error converting hostport to an interger." << std::endl;
+		exit(-1);
+	}
+	
+	try
+	{
+		downThreads = std::stoi(argv[3]);
+	}
+	catch(...)
+	{
+		std::cout << "Error converting downloadThreads to an interger." << std::endl;
+		exit(-1);
+	}
+	
+	try
+	{
+		serverThreads = std::stoi(argv[4]);
+	}
+	catch(...)
+	{
+		std::cout << "Error converting serverThreads to an interger." << std::endl;
+		exit(-1);
+	}
 	
 	if(directory[0] == 'c' && directory[1] == 'd' && directory.length() == 2)
 	{
