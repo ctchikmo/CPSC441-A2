@@ -104,7 +104,7 @@ bool User::help()
 	<< "Type in 'mm' to turn on message mode. All incoming messages are displayed immediately. Also displays any buffered messages." << std::endl
 	<< "Type in 'vm' to view currently buffered messages." << std::endl
 	<< "Type in 'dd' to view the Download Manager details (thread count and ongoing downloads)." << std::endl
-	<< "Type in 'sd' to view the Server details (thread count, your ip, port, files hosted)." << std::endl
+	<< "Type in 'sd' to view the Server details (thread count, port, files hosted)." << std::endl
 	<< "Type in 'fl <host ip> <host port>' to view the list of files at the address." << std::endl
 	<< "Type in 'df <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
 	<< "Type in 'qq' to quit (If in message mode typing qq quits message mode.)" << std::endl

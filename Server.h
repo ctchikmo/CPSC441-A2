@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <string>
 #include <queue>
+#include <vector>
 
 class User;
 class FileSender; //Forward declaration
@@ -20,6 +21,7 @@ class Server
 		void reclaim(FileSender* fileSender, int threadIndex);
 		
 		void details(); // Called on user thread, returns server details: Host port, Host ip, Hosted files, Thread count, threads in use & the file they are sending. 
+		std::vector<std::string> listFilenames();
 		
 		void quit(); // Called from the user thread
 		

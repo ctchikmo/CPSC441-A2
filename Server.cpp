@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <stdlib.h>
+#include <dirent.h>
 
 Server::Server(int port, int threads):
 port(port),
@@ -76,11 +77,38 @@ void Server::reclaim(FileSender* fileSender, int threadIndex)
 void Server::details()
 {
 	std::cout << "Total file senders: " << numThreads << std::endl;
-	std::cout << "Host ip: " << port << std::endl;
 	std::cout << "Host port: " << port << std::endl;
 	
-	std::cout << "Hosted files: ";
+	std::cout << "Hosted files: " << std::endl;
+	std::vector<std::string> filenames = listFilenames();
+	for(int i = 0; i < (int)filenames.size(); i++)
+		std::cout << " - " << filenames[i] << std::endl;
 	std::cout << std::endl;
+}
+
+// Thanks @ https://stackoverflow.com/questions/306533/how-do-i-get-a-list-of-files-in-a-directory-in-c answer by Chris Kloberdanz
+std::vector<std::string> Server::listFilenames()
+{
+	DIR *dpdf;
+	struct dirent *epdf;
+	std::vector<std::string> rv;
+
+	dpdf = opendir("./");
+	int count = 0; // We skip the first 2 files as they are the directory ones: . and ..
+	
+	if(dpdf != NULL)
+	{
+		while((epdf = readdir(dpdf)))
+		{
+			if(count == 2)
+				rv.push_back(epdf->d_name);
+			else
+				count++;
+		}
+	}
+	closedir(dpdf);
+	
+	return rv;
 }
 
 pthread_mutex_t* Server::getReadyMutex()
