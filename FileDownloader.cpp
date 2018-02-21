@@ -67,7 +67,10 @@ void FileDownloader::awaitRequest()
 			if(request.port == -1)
 				downloadManager->reclaim(this, threadIndex, "Downloader Thread Started");
 			else
+			{
 				downloadManager->reclaim(this, threadIndex, "Done download for " + request.filename + ", from: " + request.ip + ", on port: " + std::to_string(request.port));
+				request.port = -2; // We are done with this request. 
+			}
 		
 			while(request.port == -1 || request.port == -2)
 				pthread_cond_wait(&requestCond, &requestMutex);
@@ -79,8 +82,6 @@ void FileDownloader::awaitRequest()
 			handleDownload();
 		else
 			fetchFileList();
-		
-		request.port = -2; // We are done with this request. 
 	}
 }
 

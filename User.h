@@ -5,9 +5,6 @@
 #include <vector>
 #include <string>
 
-#define CMD_HELP 		"help"
-#define CMD_HELP_SHORT 	"h"
-
 class DownloadManager; // Class forward as #include won't work (they use each other)
 class Server; // Class forward as better than #include here
 
@@ -35,15 +32,15 @@ class User
 		DownloadManager* downloadManager;
 		Server* server;
 		
-		void handleCommand(std::string input);
-		void help();
-		void messageMode(); // Only input allowed is "r" to return to user mode. In this mode all messages recieved are displayed asap.
-		void viewMessages(); // Displays all currently buffered messages. 
-		void details(); // Shows client details (File Downloader thread count, File Downloaders in use(each in use displays file fetching))
-		void serverDetails(); // Shows server details (File Sender thread count, Files hosted (whats in file folder), host port, host ip)
-		void fileList(std::string ip); // Lists the files available at the input ip and port (this can be used on the own machines server, but serverDetails is preffered.)
-		void download(std::string ip); // Attempts to download the given file from the desired location. 
-		void quit();
+		bool handleCommand(std::string input); // False to stop, true to keep going in the input loop. 
+		bool help();
+		bool messageMode(); // Only input allowed is "r" to return to user mode. In this mode all messages recieved are displayed asap.
+		bool viewMessages(); // Displays all currently buffered messages. 
+		bool details(); // Shows client details (File Downloader thread count, File Downloaders in use(each in use displays file fetching))
+		bool serverDetails(); // Shows server details (File Sender thread count, Files hosted (whats in file folder), host port, host ip)
+		bool fileList(std::string ip); // Lists the files available at the input ip and port (this can be used on the own machines server, but serverDetails is preffered.)
+		bool download(std::string ip); // Attempts to download the given file from the desired location. 
+		bool quit();
 };
 
 #endif

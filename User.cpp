@@ -37,13 +37,20 @@ void User::beginInputLoop()
 	pthread_mutex_unlock(server->getReadyMutex());
 	std::cout << std::endl << "Server up and running" << std::endl << std::endl;
 	
-	std::cout << "You can begin entering commands now, type 'help' to bring up the list of commands." << std::endl << "(No caps or anything fancy for the commands)" << std::endl;
+	std::cout << "You can begin entering commands now, type 'help' to bring up the list of commands." << std::endl << "(No caps or anything fancy for the commands)" << std::endl << std::endl;
+	
+	std::string input;
+	while(std::getline(std::cin, input))
+	{
+		if(!handleCommand(input))
+			break;
+	}
 }
 
 void User::bufferMessage(std::string message)
 {
 	if(flag_messageMode)
-		std::cout << message << std::endl;
+		std::cout << " + " << message << std::endl;
 	else
 	{
 		pthread_mutex_lock(&messageMutex);
@@ -59,40 +66,39 @@ std::string& User::getDirectory()
 	return directory;
 }
 
-void User::handleCommand(std::string input)
+bool User::handleCommand(std::string input)
 {
-	char first = input[0];
-	char sec = input[1];
+	if(input.size() == 2 && input[0] == 'm' && input[1] == 'm')
+		return messageMode();
 	
-	if(first == 'm' && sec == 'm')
-		messageMode();
+	else if(input.size() == 2 && input[0] == 'v' && input[1] == 'm')
+		return viewMessages();
 	
-	else if(first == 'v' && sec == 'm')
-		viewMessages();
+	else if(input.size() == 2 && input[0] == 'd' && input[1] == 'd')
+		return details();
 	
-	else if(first == 'd' && sec == 'd')
-		details();
+	else if(input.size() == 2 && input[0] == 's' && input[1] == 'd')
+		return serverDetails();
 	
-	else if(first == 's' && sec == 'd')
-		serverDetails();
+	else if(input[0] == 'f' && input[1] == 'l')
+		return fileList(input);
 	
-	else if(first == 'f' && sec == 'l')
-		fileList(input);
+	else if(input[0] == 'd' && input[1] == 'f')
+		return download(input);
 	
-	else if(first == 'd' && sec == 'f')
-		download(input);
+	else if(input.size() == 4 && input[0] == 'h' && input[1] == 'e' && input[2] == 'l' && input[3] == 'p')
+		return help();
 	
-	else if(first == 'h' && sec == 'e' && input[2] == 'l' && input[3] == 'p')
-		help();
+	else if(input.size() == 2 && input[0] == 'q' && input[1] == 'q')
+		return quit();
 	
-	else if(first == 'q' && sec == 'q')
-		quit();
+	else if(!flag_messageMode)
+		std::cout << "No command recognized." << std::endl << std::endl;
 	
-	else
-		std::cout << "No command recognized." << std::endl;
+	return true;
 }
 
-void User::help()
+bool User::help()
 {
 	std::cout
 	<< "Type in 'mm' to turn on message mode. All incoming messages are displayed immediately. Also displays any buffered messages." << std::endl
@@ -103,45 +109,84 @@ void User::help()
 	<< "Type in 'df <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
 	<< "Type in 'qq' to quit (If in message mode typing qq quits message mode.)" << std::endl
 	<< std::endl;
+	
+	return true;
 }
 
-void User::messageMode()
+bool User::messageMode()
 {
-	flag_messageMode = true;
-	viewMessages();
+	if(flag_messageMode)
+	{
+		flag_messageMode = false;
+		std::cout << "Message mode is off" << std::endl << std::endl;
+	}
+	else
+	{
+		flag_messageMode = true;
+		std::cout << "Message mode on (entering an invalid command will not display an error, but still won't work.)" << std::endl;
+		viewMessages();
+	}
+	
+	return true;
 }
 
-void User::viewMessages()
+bool User::viewMessages()
 {
 	pthread_mutex_lock(&messageMutex);
 	{
-		for(int i = 0; i < (int)messageBuffer.size(); i++)
+		std::cout << "Printing " << messageBuffer.size() << " message(s):" << std::endl;
+		if((int)messageBuffer.size() != 0)
 		{
-			std::cout << messageBuffer.back() << std::endl;
-			messageBuffer.pop_back();
+			for(int i = 0; i < (int)messageBuffer.size(); i++)
+				std::cout << " + " << messageBuffer[i] << std::endl;
+			
+			messageBuffer.clear();
 		}
+		std::cout << std::endl;
 	}
 	pthread_mutex_unlock(&messageMutex);
+	
+	return true;
 }
 
-void User::details()
+bool User::details()
 {
 	std::cout << "Client downloading details:" << std::endl;
 	downloadManager->details();
 	std::cout << std::endl;
+	
+	return true;
 }
 
-void User::serverDetails()
+bool User::serverDetails()
 {
 	std::cout << "Server hosting details:" << std::endl;
 	server->details();
 	std::cout << std::endl;
+	
+	return true;
 }
 
-void User::fileList(std::string input)
+bool User::fileList(std::string input)
 {
-	int endOfIP = input.find(' ', 3);
-	int endOfPort = input.find(' ', endOfIP + 1);
+	int endOfIP; // This is the position of the serperating space
+	int endOfPort; // This is the position of the serperating space
+	
+	if((int)input.size() >= 4)
+		endOfIP = input.find(' ', 3);
+	else
+	{
+		std::cout << "Missing ip argument" << std::endl << std::endl;
+		return true;
+	}
+	
+	if((int)input.size() >= endOfIP + 2 && endOfIP != -1)
+		endOfPort = input.find(' ', endOfIP + 1);
+	else
+	{
+		std::cout << "Missing port argument" << std::endl << std::endl;
+		return true;
+	}
 	
 	std::string hostIP = input.substr(3, (endOfIP - 3));
 	std::string hostPort = input.substr(endOfIP + 1, (endOfPort - endOfIP - 1));
@@ -151,48 +196,86 @@ void User::fileList(std::string input)
 	try
 	{
 		port = std::stoi(hostPort);
+		std::cout << "IP: " << hostIP << std::endl;
+		std::cout << "Port: " << port << std::endl;
 		
 		// This only runs if the exception is not thrown.
-		downloadManager->fileList(hostIP, port);
+		std::cout << downloadManager->fileList(hostIP, port) << std::endl << std::endl;
 	}
 	catch(...)
 	{
-		std::cout << "Error converting hostport to an interger." << std::endl;
+		std::cout << "Error converting hostport to an interger." << std::endl << std::endl;
 	}
+	
+	return true;
 }
 
-void User::download(std::string input)
+bool User::download(std::string input)
 {
-	int endOfIP = input.find(' ', 3);
-	int endOfPort = input.find(' ', endOfIP + 1);
+	int endOfIP; // This is the position of the serperating space
+	int endOfPort; // This is the position of the serperating space
+	
+	if((int)input.size() >= 4)
+		endOfIP = input.find(' ', 3);
+	else
+	{
+		std::cout << "Missing ip argument" << std::endl << std::endl;
+		return true;
+	}
+	
+	if((int)input.size() >= endOfIP + 2 && endOfIP != -1)
+		endOfPort = input.find(' ', endOfIP + 1);
+	else
+	{
+		std::cout << "Missing port argument" << std::endl << std::endl;
+		return true;
+	}
 	
 	std::string hostIP = input.substr(3, (endOfIP - 3));
 	std::string hostPort = input.substr(endOfIP + 1, (endOfPort - endOfIP - 1));
-	std::string filename = input.substr(endOfPort + 1, std::string::npos);
+	std::string filename;
+	
+	if((int)input.size() >= endOfPort + 2 && endOfPort != -1)
+		filename = input.substr(endOfPort + 1, std::string::npos);
+	else
+	{
+		std::cout << "Missing filename argument" << std::endl << std::endl;
+		return true;
+	}
 	
 	int port;
 	
 	try
 	{
 		port = std::stoi(hostPort);
+		std::cout << "IP: " << hostIP << std::endl;
+		std::cout << "Port: " << port << std::endl;
+		std::cout << "Filename: " << filename << std::endl;
 		
 		// This only runs if the exception is not thrown.
-		downloadManager->download(hostIP, port, filename);
+		std::cout << downloadManager->download(hostIP, port, filename) << std::endl << std::endl;
 	}
 	catch(...)
 	{
-		std::cout << "Error converting hostport to an interger." << std::endl;
+		std::cout << "Error converting hostport to an interger." << std::endl << std::endl;
 	}
+	
+	return true;
 }
 
-void User::quit()
+bool User::quit()
 {
 	if(flag_messageMode)
+	{
 		flag_messageMode = false;
+		std::cout << "Message mode is off" << std::endl << std::endl;
+		return true;
+	}
 	else
 	{
 		downloadManager->quit();
 		server->quit();
+		return false;
 	}
 }
 
