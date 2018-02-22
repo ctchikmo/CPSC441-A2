@@ -38,7 +38,7 @@ void User::beginInputLoop()
 	std::cout << std::endl << "Server up and running" << std::endl << std::endl;
 	
 	std::cout << "You can begin entering commands now, type 'help' to bring up the list of commands." << std::endl << "(No caps or anything fancy for the commands)" << std::endl << std::endl;
-	std::cout << "As a check for you're hosting, here are the server details" << std::endl << "(this can be seen again using the command 'sd')" << std::endl;
+	std::cout << "As a check for what you're hosting, here are the server details" << std::endl << "(this can be seen again using the command 'sd')" << std::endl;
 	serverDetails();
 	
 	std::string input;

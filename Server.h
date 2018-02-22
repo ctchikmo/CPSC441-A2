@@ -1,10 +1,15 @@
 #ifndef Server_H
 #define Server_H
 
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <pthread.h>
 #include <string>
 #include <queue>
 #include <vector>
+
+#define SERVER_MAX_BACKLOG 128
 
 class User;
 class FileSender; //Forward declaration
@@ -31,6 +36,7 @@ class Server
 	private:
 		bool flag_ready = false;
 		int port = -1;
+		std::string ip;
 		User* user; // User is used for accessing the current directory (where the files are hosted)
 		pthread_t thread;
 		pthread_mutex_t readyMutex; // The ready mutex and cond are used to indicate that the server has completed startup (at least one FileSender up, and Server is about to open for connections.)
@@ -39,6 +45,9 @@ class Server
 		pthread_mutex_t senderMutex;
 		pthread_cond_t senderCond;
 		
+		int serverSocket = -1;
+		struct sockaddr_in serverAddressing;
+		
 		int numThreads = -1;
 		FileSender** inProgress; // Array which is the same size as the number of threads. When a thread is created it is given a unique index corresponding to the position it is stored in. Required for quit(). 
 		std::queue<FileSender*> senders;
@@ -46,6 +55,7 @@ class Server
 		bool flag_running = true;
 		
 		void startupServer();
+		void acceptConnections();
 		static void* startServerThread(void* server); // Called from this classes ctor when creating its own pthread. This is only called once for Server
 };
 

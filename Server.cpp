@@ -2,6 +2,7 @@
 #include "FileSender.h"
 #include "User.h"
 
+#include <arpa/inet.h> // inet_ntop
 #include <iostream>
 #include <stdlib.h>
 #include <dirent.h>
@@ -77,6 +78,7 @@ void Server::reclaim(FileSender* fileSender, int threadIndex)
 void Server::details()
 {
 	std::cout << "Total file senders: " << numThreads << std::endl;
+	std::cout << "Host ip: " << "Auto assigned and bound to all local IPs (loopback, ipv4 etc.)" << std::endl;
 	std::cout << "Host port: " << port << std::endl;
 	
 	std::cout << "Hosted files: (items with no extension are folders)" << std::endl;
@@ -123,14 +125,101 @@ pthread_cond_t* Server::getReadyCond()
 	return &readyCond;
 }
 
+// Thanks @ https://gist.github.com/listnukira/4045436 && @ https://stackoverflow.com/questions/1075399/how-to-bind-to-any-available-port
 void Server::startupServer()
 {
+	serverSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if(serverSocket < 0)
+	{
+		std::cout << "There was an error opening the server socket." << std::endl;
+		exit(1);
+	}
+	
+	serverAddressing.sin_family = AF_INET; // IPV4 byte ordering
+	serverAddressing.sin_addr.s_addr = INADDR_ANY; // Auto-fill with host ip to use. 
+	serverAddressing.sin_port = htons(port); // convert port into network byte order using htons. Note that if port is 0 than when we bind the OS will get us a free port. 
+	
+	if(bind(serverSocket, (struct sockaddr*) &serverAddressing, sizeof(serverAddressing)) < 0)
+	{
+		std::cout << "There was an error binding the server socket." << std::endl;
+		exit(1);
+	}
+	
+	struct sockaddr_in myAddress;
+	int len = sizeof(myAddress);
+	if(getsockname(serverSocket, (struct sockaddr*) &myAddress, &len) < 0)
+	{
+		std::cout << "Error reading server socket bind information" << std::endl;
+		exit(1);
+	}
+	
+	char myIP[16]; // The ip in the address is in byte form, but it is converted in the next step
+	inet_ntop(AF_INET, &myAddress.sin_addr, myIP, sizeof(myIP)); // Convert byte form ip to char array
+	ip.assign(myIP);
+	port = ntohs(myAddress.sin_port); // Convert the byte form port to an int 
+	
 	pthread_mutex_lock(&readyMutex);
 	{
 		flag_ready = true;
 		pthread_cond_signal(&readyCond);
 	}
 	pthread_mutex_unlock(&readyMutex);
+	
+	acceptConnections();
+}
+
+// I need to implement connections for UDP as thats how the thread handing off works. I don't do any queing cause of timeouts. The client side will do multiple attempts, so it has a good shot of getting a con. 
+// In the connection area I: Create a socket for the FileSender to use, send the paidLoad body to the FileSender (this first message contains the file requested. Since this is not the exact File data its not octo'd)
+void Server::acceptConnections()
+{
+	while(flag_running)
+	{
+		// Message buffering
+		char* buffer = new char[1500];
+		
+		// This stuff is used to store the clients address info
+		struct sockaddr_in clientInfo;
+		int clientInfoLen = sizeof(clientInfo);
+		
+		int recBytes = recvfrom(serverSocket, buffer, 1500, 0, (struct sockaddr*) &clientInfo, &clientInfoLen);
+		if(recBytes < 0)
+		{
+			std::cout << "Server error accepting connection." << std::endl;
+			exit(-1);
+		}
+		
+		int toFileSender = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if(toFileSender < 0)
+		{
+			std::cout << "Error creating fileSender socket" << std::endl;
+			exit(-1);
+		}
+		
+		if(connect(toFileSender, (struct sockaddr *)&clientInfo, clientInfoLen) < 0)
+		{
+			std::cout << "Error connecting fileSender socket" << std::endl;
+			exit(-1);
+		}
+		
+		std::string fileSenderData(buffer, recBytes);
+		
+		FileSender* sender;
+		pthread_mutex_lock(&senderMutex);
+		{
+			while(senders.size() == 0)
+				pthread_cond_wait(&senderCond, &senderMutex);
+			
+			sender = senders.front();
+			senders.pop();
+			inProgress[sender->getThreadIndex()] = sender;
+		}
+		pthread_mutex_unlock(&senderMutex);
+		
+		// At this point we have the FileSender. 
+		sender->beginRequest(toFileSender, fileSenderData);
+		
+		delete[] buffer;
+	}
 }
 
 void* Server::startServerThread(void* server)

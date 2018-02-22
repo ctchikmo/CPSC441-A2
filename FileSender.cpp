@@ -30,9 +30,10 @@ int FileSender::getThreadIndex()
 	return threadIndex;
 }
 
-void FileSender::beginRequest(int cls)
+void FileSender::beginRequest(int cls, std::string req)
 {
 	clientSocket = cls;
+	request = req;
 	
 	pthread_mutex_lock(&requestMutex);
 	{

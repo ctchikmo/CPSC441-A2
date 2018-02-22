@@ -15,7 +15,7 @@ class FileSender
 		
 		int getThreadIndex();
 		
-		void beginRequest(int clientSocket);
+		void beginRequest(int clientSocket, std::string request);
 		
 		void quit(); // Called from the user thread
 		
@@ -29,6 +29,7 @@ class FileSender
 		
 		bool flag_running = true;
 		int clientSocket = -1;
+		std::string request;
 		
 		void awaitRequest();
 		void handleRequest();

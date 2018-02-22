@@ -9,6 +9,16 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+/*
+ * REALLY IMPORTANT ASSUMPTION:
+ * + Anything that does not have to do with the File data itself does not need to be Octouput'd (as the assignment only talks about Data Files). The following are excluded from octo
+ *	 - Filename
+ * 	 - Connection packet
+ * 	 - Acknowledgement packet
+ *   - Any other realiability function
+*/
+
+
 // There are 4 arguments: host port, directory to store/host files, Number of Download threads (1 file per thread), Number of Server threads (1 file per thread)
 int main(int argc, char const* argv[])
 {
