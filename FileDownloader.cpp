@@ -44,6 +44,11 @@ void FileDownloader::beginRequest(Request req)
 	pthread_mutex_unlock(&requestMutex);
 }
 
+int FileDownloader::getServSocket()
+{
+	return servSocket;
+}
+
 int FileDownloader::getThreadIndex()
 {
 	return threadIndex;
@@ -87,7 +92,7 @@ void FileDownloader::awaitRequest()
 		// At this point we have a new request to handle
 		
 		// Get the socket to use and set it up. 
-		int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		servSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		
 		struct sockaddr_in address;
 		address.sin_family = AF_INET; // IPV4 byte ordering
@@ -109,30 +114,25 @@ void FileDownloader::awaitRequest()
 		else
 			request.port = -3;
 		
-		close(sock);
+		close(servSocket);
 	}
 }
 
-void FileDownloader::fetchFileList(int socket)
+void FileDownloader::fetchFileList()
 {
 	// Connect to the server and let it know we are asking for the file list. 
 	char opener[OPENER_SIZE]; // Opener just sends the requst type and the file desired. Here it is the list command, so no file.
 	opener[OPENER_POS] = FILE_LIST;
-	if(send(socket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
+	if(send(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
 	{
 		request.port = -4;
 		return;
 	}
 	
-	opener[OPENER_POS] = 't';
-	if(send(socket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
-	{
-		request.port = -4;
-		return;
-	}
+	// Get the file size so we can run the Octoblock algorithm here, then start waiting for recvs. 
 }
 
-void FileDownloader::handleDownload(int socket)
+void FileDownloader::handleDownload()
 {
 	
 }

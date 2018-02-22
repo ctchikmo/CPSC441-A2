@@ -22,6 +22,7 @@ class FileDownloader
 		~FileDownloader();
 		
 		void beginRequest(Request requst);
+		int getServSocket();
 		
 		int getThreadIndex();
 		void details(); // Called via the user thread
@@ -38,10 +39,11 @@ class FileDownloader
 		
 		bool flag_running = true;
 		Request request; // A port value of >= 0 means good, -1 means startup, -2 means finished request.
+		int servSocket = -1;
 		
 		void awaitRequest();
-		void fetchFileList(int socket);
-		void handleDownload(int socket);
+		void fetchFileList();
+		void handleDownload();
 		
 		static void* startFileDownloaderThread(void* fileDownloader); // Called from this classes ctor when creating its own pthread.
 };

@@ -18,6 +18,7 @@ class FileSender
 		
 		void beginRequest(int clientSocket, int port, std::string request);
 		void handleData(char* data, int recBytes);
+		int getClientSocket();
 		int getClientPort();
 		
 		void quit(); // Called from the user thread

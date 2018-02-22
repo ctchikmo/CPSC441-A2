@@ -57,6 +57,11 @@ void FileSender::handleData(char* data, int recBytes)
 	pthread_mutex_unlock(&requestMutex);
 }
 
+int FileSender::getClientSocket()
+{
+	return clientSocket;
+}
+
 int FileSender::getClientPort()
 {
 	return clientPort;
