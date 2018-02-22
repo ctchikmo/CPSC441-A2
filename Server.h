@@ -55,7 +55,7 @@ class Server
 		bool flag_running = true;
 		
 		void startupServer();
-		void acceptConnections();
+		void reciveData();
 		static void* startServerThread(void* server); // Called from this classes ctor when creating its own pthread. This is only called once for Server
 };
 

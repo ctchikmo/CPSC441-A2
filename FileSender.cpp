@@ -1,9 +1,12 @@
 #include "FileSender.h"
 #include "Server.h"
+#include "Communication.h"
 
 #include <iostream>
 #include <stdlib.h>
+#include <unistd.h>
 
+//!!!!! IMPORTANT: File sender does not actually recv any data, instead it gets it all from the server from handleData. This is because UDP does not support connecitons, so at the OS level it has no idea where to send. 
 FileSender::FileSender(Server* server, int threadIndex):
 server(server),
 threadIndex(threadIndex)
@@ -30,9 +33,10 @@ int FileSender::getThreadIndex()
 	return threadIndex;
 }
 
-void FileSender::beginRequest(int cls, std::string req)
+void FileSender::beginRequest(int cls, int port, std::string req)
 {
 	clientSocket = cls;
+	clientPort = port;
 	request = req;
 	
 	pthread_mutex_lock(&requestMutex);
@@ -40,6 +44,21 @@ void FileSender::beginRequest(int cls, std::string req)
 		pthread_cond_signal(&requestCond);
 	}
 	pthread_mutex_unlock(&requestMutex);
+}
+
+void FileSender::handleData(char* data, int recBytes)
+{
+	pthread_mutex_lock(&requestMutex);
+	{
+		dataQueue.push(std::string(data, recBytes));
+		pthread_cond_signal(&requestCond);
+	}
+	pthread_mutex_unlock(&requestMutex);
+}
+
+int FileSender::getClientPort()
+{
+	return clientPort;
 }
 
 void FileSender::awaitRequest()
@@ -55,14 +74,45 @@ void FileSender::awaitRequest()
 		}
 		pthread_mutex_unlock(&requestMutex);
 		
-		handleRequest();
+		if(request[0] == FILE_LIST)
+			handleFileList();
+		else
+			handleFile();
+
+		close(clientSocket);
 		clientSocket = -1;
 	}
 }
 
-void FileSender::handleRequest()
+void FileSender::handleFileList()
 {
+	// Inital comunication requires sending file size, in this case that is the bytes required to send all file names. (Handle file gets a filename to send the size for here.)
+	std::cout << "filesize" << std::endl;
+	
+	while(flag_running)
+	{
+		std::string handleThis;
+	
+		// Figure out how to transmission timer. If we go over this after a few attempts we return to the Sever loop.
+		pthread_mutex_lock(&requestMutex);
+		{
+			while(dataQueue.size() == 0)
+				pthread_cond_wait(&requestCond, &requestMutex);
+			
+			handleThis = dataQueue.front();
+			dataQueue.pop();
+		}
+		pthread_mutex_unlock(&requestMutex);
+		
+		// At this point handleThis is safe to use. 
+		
+		// Final ack detected, so we return back to Server pool.
+	}
+}
 
+void FileSender::handleFile()
+{
+	std::cout << 1 << std::endl;
 }
 	
 void* FileSender::startFileSenderThread(void* fileSender)

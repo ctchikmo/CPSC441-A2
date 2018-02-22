@@ -9,6 +9,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
 
 FileDownloader::FileDownloader(DownloadManager* downloadManager, int threadIndex):
 downloadManager(downloadManager),
@@ -107,6 +108,8 @@ void FileDownloader::awaitRequest()
 		}
 		else
 			request.port = -3;
+		
+		close(sock);
 	}
 }
 
@@ -115,6 +118,13 @@ void FileDownloader::fetchFileList(int socket)
 	// Connect to the server and let it know we are asking for the file list. 
 	char opener[OPENER_SIZE]; // Opener just sends the requst type and the file desired. Here it is the list command, so no file.
 	opener[OPENER_POS] = FILE_LIST;
+	if(send(socket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
+	{
+		request.port = -4;
+		return;
+	}
+	
+	opener[OPENER_POS] = 't';
 	if(send(socket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
 	{
 		request.port = -4;

@@ -1,6 +1,7 @@
 #include "Server.h"
 #include "FileSender.h"
 #include "User.h"
+#include "Communication.h"
 
 #include <arpa/inet.h> // inet_ntop
 #include <iostream>
@@ -165,27 +166,49 @@ void Server::startupServer()
 	}
 	pthread_mutex_unlock(&readyMutex);
 	
-	acceptConnections();
+	reciveData();
 }
 
 // I need to implement connections for UDP as thats how the thread handing off works. I don't do any queing cause of timeouts. The client side will do multiple attempts, so it has a good shot of getting a con. 
+// Since UDP does not support connections though, my version is pretty simple. The server class gets all messages, then just hands them to the Sender thread associated with that client.
 // In the connection area I: Create a socket for the FileSender to use, send the paidLoad body to the FileSender (this first message contains the file requested. Since this is not the exact File data its not octo'd)
-void Server::acceptConnections()
+void Server::reciveData()
 {
 	while(flag_running)
 	{
 		// Message buffering
-		char* buffer = new char[1500];
+		char* buffer = new char[SERVER_BUFFER];
 		
 		// This stuff is used to store the clients address info
-		struct sockaddr_in clientInfo;
+		struct sockaddr_in clientInfo; // Very inportant, clientInfo stores the part of the quartent of info (client port) which diferentiates things.
 		int clientInfoLen = sizeof(clientInfo);
 		
-		int recBytes = recvfrom(serverSocket, buffer, 1500, 0, (struct sockaddr*) &clientInfo, &clientInfoLen);
+		int recBytes = recvfrom(serverSocket, buffer, SERVER_BUFFER, 0, (struct sockaddr*) &clientInfo, &clientInfoLen);
 		if(recBytes < 0)
 		{
-			std::cout << "Server error accepting connection." << std::endl;
+			std::cout << "Server error recieving data." << std::endl;
 			exit(-1);
+		}
+		
+		// Check if the client is already being handled, if so hand the data off:
+		int cliPort = ntohs(clientInfo.sin_port); // Convert the byte form port to an int 
+		bool found = false;
+		pthread_mutex_lock(&senderMutex);
+		{
+			for(int i = 0; i < numThreads; i++)
+			{
+				if(inProgress[i] != NULL && inProgress[i]->getClientPort() == cliPort)
+				{
+					inProgress[i]->handleData(buffer, recBytes);
+					found = true;
+				}
+			}
+		}
+		pthread_mutex_unlock(&senderMutex);
+		if(found)
+		{
+			delete[] buffer;
+			continue;
 		}
 		
 		int toFileSender = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -216,7 +239,7 @@ void Server::acceptConnections()
 		pthread_mutex_unlock(&senderMutex);
 		
 		// At this point we have the FileSender. 
-		sender->beginRequest(toFileSender, fileSenderData);
+		sender->beginRequest(toFileSender, cliPort, fileSenderData);
 		
 		delete[] buffer;
 	}
