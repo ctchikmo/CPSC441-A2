@@ -100,15 +100,15 @@ void FileDownloader::awaitRequest()
 		{
 			address.sin_port = htons(request.port);
 		
-			if(connect(sock, (struct sockaddr*)&address, sizeof(address)) < 0)
+			if(connect(servSocket, (struct sockaddr*)&address, sizeof(address)) < 0)
 				request.port = -3;
 			
 			else // we good
 			{
 				if(request.type == RequestType::DOWNLOAD)
-					handleDownload(sock);
+					handleDownload();
 				else
-					fetchFileList(sock);	
+					fetchFileList();	
 			}
 		}
 		else
@@ -126,7 +126,7 @@ void FileDownloader::fetchFileList()
 	if(send(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
 	{
 		request.port = -4;
-		return;
+		return; // The server will clean itself up after timeout. 
 	}
 	
 	// Get the file size so we can run the Octoblock algorithm here, then start waiting for recvs. 

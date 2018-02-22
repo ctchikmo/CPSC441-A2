@@ -1,43 +1,70 @@
 #include "Communication.h"
+#include "FileDownloader.h"
+#include "FileSender.h"
 
-Octoleg(char blockNum, char legNum, FileDownloader downloader, int size)
+#include <sys/socket.h>
+
+Octoleg::Octoleg(char blockNum, char legNum, FileDownloader* downloader, int size):
+blockNum(blockNum),
+legNum(legNum),
+downloader(downloader),
+size(size)
+{
+	data = new char[size];
+}
+
+Octoleg::Octoleg(char blockNum, char legNum, FileSender* sender, int size, char* d):
+blockNum(blockNum),
+legNum(legNum),
+sender(sender),
+size(size)
+{
+	data = new char[size];
+	for(int i = 0; i <size; i++)
+		data[i] = d[i];
+}
+
+Octoleg::~Octoleg()
+{
+	delete[] data;
+}
+
+int Octoleg::getDataSize()
+{
+	return size;
+}
+
+char* Octoleg::getData()
+{
+	return data;
+}
+
+bool Octoleg::serverSendData()
+{
+	if(send(sender->getClientSocket(), data, size, MSG_NOSIGNAL) == -1)
+		return false; // The client will handle clean up if this happens.
+	
+	return true;
+}
+
+bool Octoleg::serverAskForAck()
 {
 	
 }
 
-Octoleg(char blockNum, char legNum, FileSender sender, int size, char* data)
+bool Octoleg::clientRecvFileData(char* data, int size)
 {
 	
 }
 
-~Octoleg()
+bool Octoleg::clientSendAck()
 {
 	
 }
 
-void serverSendData()
+bool Octoleg::clientAskForRetransmit()
 {
-	
-}
-
-void serverAskForAck()
-{
-	
-}
-
-void clientRecvFileData(char* data, int size)
-{
-	
-}
-
-void clientSendAck()
-{
-	
-}
-
-void clientAskForRetransmit()
-{
-	
+	serverSendData();
 }
 
 

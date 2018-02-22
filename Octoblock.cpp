@@ -1,5 +1,7 @@
 #include "Communication.h"
 
+#include <sys/socket.h>
+
 Octoblock::Octoblock(char blockNum, int size, FileDownloader* downloader)
 {
 	
@@ -15,22 +17,22 @@ Octoblock::~Octoblock()
 	
 }
 
-void Octoblock::sendRequest()
+bool Octoblock::sendRequest()
 {
 	
 }
 
-void Octoblock::recvClient(char* data, int size)
+bool Octoblock::recvClient(char* data, int size)
 {
 	
 }
 
-void Octoblock::serverSendData()
+bool Octoblock::serverSendData()
 {
 	
 }
 
-bool Octoblock::recvServer(char* data, int size)
+int Octoblock::recvServer(char* data, int size)
 {
 	
 }
@@ -40,7 +42,7 @@ bool Octoblock::complete()
 	
 }
 
-std::queue<Octoblock> Octoblock::getOctoblocks(int fileSize, FileDownloader* downloader)
+std::vector<Octoblock> Octoblock::getOctoblocks(int fileSize, FileDownloader* downloader)
 {
 	
 }
