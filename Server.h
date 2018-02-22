@@ -54,6 +54,8 @@ class Server
 		
 		bool flag_running = true;
 		
+		bool isDir(const char* path);
+		
 		void startupServer();
 		void reciveData();
 		static void* startServerThread(void* server); // Called from this classes ctor when creating its own pthread. This is only called once for Server

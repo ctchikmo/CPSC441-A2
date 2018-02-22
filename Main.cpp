@@ -11,8 +11,9 @@
 
 /*
  * REALLY IMPORTANT ASSUMPTION:
- * + Anything that does not have to do with the File data itself does not need to be Octouput'd (as the assignment only talks about Data Files). The following are excluded from octo
+ * + Anything that does not have to do with the actual File data does not need to be Octouput'd (as the assignment only talks about Data Files). The following are excluded from octo
  *	 - Filename
+ *	 - Filesize
  * 	 - Connection packet
  * 	 - Acknowledgement packet
  *   - Any other realiability function

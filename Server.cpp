@@ -7,6 +7,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <dirent.h>
+#include <sys/stat.h> // Check if file is directory
 
 Server::Server(int port, int threads):
 port(port),
@@ -82,7 +83,7 @@ void Server::details()
 	std::cout << "Host ip: " << "Auto assigned and bound to all local IPs (use the IPV4 address)" << std::endl;
 	std::cout << "Host port: " << port << std::endl;
 	
-	std::cout << "Hosted files: (items with no extension are folders)" << std::endl;
+	std::cout << "Hosted files:" << std::endl;
 	std::vector<std::string> filenames = listFilenames();
 	for(int i = 0; i < (int)filenames.size(); i++)
 		std::cout << " - " << filenames[i] << std::endl;
@@ -96,16 +97,14 @@ std::vector<std::string> Server::listFilenames()
 	std::vector<std::string> rv;
 
 	dpdf = opendir((user->getDirectory()).c_str());
-	int count = 0; // We skip the first 2 files as they are the directory ones: . and ..
-	
 	if(dpdf != NULL)
 	{
 		while((epdf = readdir(dpdf)))
 		{
-			if(count == 2)
+			std::string path = user->getDirectory() + "/" + epdf->d_name;
+			
+			if(!isDir(path.c_str()))
 				rv.push_back(epdf->d_name);
-			else
-				count++;
 		}
 		
 		closedir(dpdf);
@@ -114,6 +113,14 @@ std::vector<std::string> Server::listFilenames()
 		std::cout << "Check the directory you entered, it may be invalid." << std::endl;
 	
 	return rv;
+}
+
+// Thanks @ http://forum.codecall.net/topic/68935-how-to-test-if-file-or-directory/
+bool Server::isDir(const char* path) 
+{
+    struct stat buf;
+    stat(path, &buf);
+    return S_ISDIR(buf.st_mode);
 }
 
 pthread_mutex_t* Server::getReadyMutex()

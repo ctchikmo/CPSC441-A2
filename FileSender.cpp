@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <unistd.h>
+#include <vector>
 
 //!!!!! IMPORTANT: File sender does not actually recv any data, instead it gets it all from the server from handleData. This is because UDP does not support connecitons, so at the OS level it has no idea where to send. 
 FileSender::FileSender(Server* server, int threadIndex):
@@ -87,7 +88,10 @@ void FileSender::awaitRequest()
 void FileSender::handleFileList()
 {
 	// Inital comunication requires sending file size, in this case that is the bytes required to send all file names. (Handle file gets a filename to send the size for here.)
-	std::cout << "filesize" << std::endl;
+	std::vector<std::string> filenames = server->listFilenames();
+	int size = 0;
+	for(int i = 0; i < (int)filenames.size(); i++)
+		size += filenames[i].size() + 1; // +1 for the \0 which will be included in its printout.
 	
 	while(flag_running)
 	{
