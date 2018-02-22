@@ -1,9 +1,14 @@
 #include "FileDownloader.h"
 #include "DownloadManager.h"
 #include "Request.h"
+#include "Communication.h"
 
 #include <iostream>
 #include <stdlib.h>
+#include <arpa/inet.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 FileDownloader::FileDownloader(DownloadManager* downloadManager, int threadIndex):
 downloadManager(downloadManager),
@@ -38,16 +43,6 @@ void FileDownloader::beginRequest(Request req)
 	pthread_mutex_unlock(&requestMutex);
 }
 
-void FileDownloader::fetchFileList()
-{
-	
-}
-
-void FileDownloader::handleDownload()
-{
-	
-}
-
 int FileDownloader::getThreadIndex()
 {
 	return threadIndex;
@@ -62,10 +57,21 @@ void FileDownloader::awaitRequest()
 {
 	while(flag_running)
 	{
+		// I use request.port to flag stuff here, which is probably bad practice, but w/e. 
 		pthread_mutex_lock(&requestMutex);
 		{
 			if(request.port == -1)
 				downloadManager->reclaim(this, threadIndex, "Downloader Thread Started");
+			else if(request.port == -3)
+			{
+				downloadManager->reclaim(this, threadIndex, "File download for " + request.filename + " encounted an error during socket setup.");
+				request.port = -2; // We are done with this request. 
+			}
+			else if(request.port == -4)
+			{
+				downloadManager->reclaim(this, threadIndex, "File download for " + request.filename + "  encounted an error during download");
+				request.port = -2; // We are done with this request. 
+			}
 			else
 			{
 				downloadManager->reclaim(this, threadIndex, "Done download for " + request.filename + ", from: " + request.ip + ", on port: " + std::to_string(request.port));
@@ -78,11 +84,47 @@ void FileDownloader::awaitRequest()
 		pthread_mutex_unlock(&requestMutex);
 		
 		// At this point we have a new request to handle
-		if(request.type == RequestType::DOWNLOAD)
-			handleDownload();
+		
+		// Get the socket to use and set it up. 
+		int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		
+		struct sockaddr_in address;
+		address.sin_family = AF_INET; // IPV4 byte ordering
+		if(inet_pton(AF_INET, request.ip.c_str(), &address.sin_addr) == 1) // Convert the ip to byte form. (1 means good)
+		{
+			address.sin_port = htons(request.port);
+		
+			if(connect(sock, (struct sockaddr*)&address, sizeof(address)) < 0)
+				request.port = -3;
+			
+			else // we good
+			{
+				if(request.type == RequestType::DOWNLOAD)
+					handleDownload(sock);
+				else
+					fetchFileList(sock);	
+			}
+		}
 		else
-			fetchFileList();
+			request.port = -3;
 	}
+}
+
+void FileDownloader::fetchFileList(int socket)
+{
+	// Connect to the server and let it know we are asking for the file list. 
+	char opener[OPENER_SIZE]; // Opener just sends the requst type and the file desired. Here it is the list command, so no file.
+	opener[OPENER_POS] = FILE_LIST;
+	if(send(socket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
+	{
+		request.port = -4;
+		return;
+	}
+}
+
+void FileDownloader::handleDownload(int socket)
+{
+	
 }
 
 void* FileDownloader::startFileDownloaderThread(void* fileDownloader)

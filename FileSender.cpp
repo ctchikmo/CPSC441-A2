@@ -62,7 +62,7 @@ void FileSender::awaitRequest()
 
 void FileSender::handleRequest()
 {
-	
+
 }
 	
 void* FileSender::startFileSenderThread(void* fileSender)

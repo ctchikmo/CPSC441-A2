@@ -78,7 +78,7 @@ void Server::reclaim(FileSender* fileSender, int threadIndex)
 void Server::details()
 {
 	std::cout << "Total file senders: " << numThreads << std::endl;
-	std::cout << "Host ip: " << "Auto assigned and bound to all local IPs (loopback, ipv4 etc.)" << std::endl;
+	std::cout << "Host ip: " << "Auto assigned and bound to all local IPs (use the IPV4 address)" << std::endl;
 	std::cout << "Host port: " << port << std::endl;
 	
 	std::cout << "Hosted files: (items with no extension are folders)" << std::endl;
@@ -136,7 +136,7 @@ void Server::startupServer()
 	}
 	
 	serverAddressing.sin_family = AF_INET; // IPV4 byte ordering
-	serverAddressing.sin_addr.s_addr = INADDR_ANY; // Auto-fill with host ip to use. 
+	serverAddressing.sin_addr.s_addr = INADDR_ANY; // Use any/all of the computers registered IPs. 
 	serverAddressing.sin_port = htons(port); // convert port into network byte order using htons. Note that if port is 0 than when we bind the OS will get us a free port. 
 	
 	if(bind(serverSocket, (struct sockaddr*) &serverAddressing, sizeof(serverAddressing)) < 0)
