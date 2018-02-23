@@ -47,6 +47,11 @@ char* Octoleg::getData()
 	return data;
 }
 
+char Octoleg::getLegNum()
+{
+	return legNum;
+}
+
 bool Octoleg::serverSendData()
 {
 	if(send(sender->getClientSocket(), serverData, size + 3, MSG_NOSIGNAL) == -1)

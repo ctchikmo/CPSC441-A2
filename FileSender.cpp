@@ -96,28 +96,36 @@ void FileSender::handleFileList()
 	std::vector<std::string> filenames = server->listFilenames();
 	int size = 0;
 	for(int i = 0; i < (int)filenames.size(); i++)
-		size += filenames[i].size() + 1; // +1 for the \0 which will be included in its printout.
+		size += filenames[i].size() + 1; // +1 for the \n which will be included in its printout.
 	
-	std::string sizeString = to_string(size);
+	std::string sizeString = std::to_string(size);
 	if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the filesize. 
 		return; // Client will time out.
-		
+	
 	char toSend[size];
 	int pos = 0;
 	for(int i = 0; i < (int)filenames.size(); i++)
 	{
-		for(int j = 0; j < filenames[i].size(); j++)
+		for(int j = 0; j < (int)filenames[i].size(); j++)
 		{
 			toSend[pos + j] = filenames[i][j];
 		}
 		
-		filenames[pos + filenames[i].size()] = '\0';
+		toSend[pos + filenames[i].size()] = '\n';
 		pos += filenames[i].size() + 1;
 	}
-
-	std::queue<Octoblock> blocks = Octoblock::getOctoblocks(size, toSend, this);
-	Octoblock current = blocks.front();
+	
+	std::queue<Octoblock*> blocks;
+	Octoblock::getOctoblocks(&blocks, size, toSend, this);
+	
+	if(blocks.size() == 0)
+		return;
+	
+	Octoblock* current = blocks.front();
 	blocks.pop();
+	
+	if(!(current->serverSendData()))
+		return;
 	
 	while(flag_running)
 	{
@@ -136,7 +144,22 @@ void FileSender::handleFileList()
 		
 		// At this point handleThis is safe to use. 
 		
-		// Final ack detected, so we return back to Server pool.
+		if(current->complete())
+		{
+			if(blocks.size() == 0)
+				break;
+			else
+			{
+				current = blocks.front();
+				blocks.pop();
+				
+				if(!(current->serverSendData()))
+					return;
+			}
+		}
+		else
+			if(!(current->recvServer(handleThis.c_str(), handleThis.size())))
+				return;
 	}
 }
 

@@ -100,7 +100,7 @@ void FileDownloader::awaitRequest()
 		{
 			address.sin_port = htons(request.port);
 		
-			if(connect(servSocket, (struct sockaddr*)&address, sizeof(address)) < 0)
+			if(connect(servSocket, (struct sockaddr*)&address, sizeof(address)) < 0) // UDP connect just sets default sendto 
 				request.port = -3;
 			
 			else // we good
@@ -130,6 +130,75 @@ void FileDownloader::fetchFileList()
 	}
 	
 	// Get the file size so we can run the Octoblock algorithm here, then start waiting for recvs. 
+	char fileSize[8];
+	int recBytes = recv(servSocket, fileSize, sizeof(fileSize), 0);
+	if(recBytes < 0)
+	{
+		request.port = -4;
+		return; // The server will clean itself up after timeout. 
+	}
+	std::string fSize(fileSize, recBytes);
+	int fileS = std::stoi(fSize);
+	
+	std::vector<Octoblock*> blocks;
+	Octoblock::getOctoblocks(&blocks, fileS, this);
+	int current = 0;
+	
+	if(blocks.size() == 0)
+	{
+		std::cout << "No Files Hosted" << std::endl;
+		return;
+	}
+	
+	while(flag_running)
+	{
+		if(blocks[current]->complete())
+		{
+			current++;
+			if(current > (int)blocks.size())
+				break;
+		}
+		else
+		{
+			char buffer[OCTOLEG_MAX_SIZE];
+			int bytes = recv(servSocket, buffer, sizeof(buffer), 0);
+			if(recBytes < 0)
+			{
+				request.port = -4;
+				return; // The server will clean itself up after timeout. 
+			}
+			else
+			{
+				if(!(blocks[current]->recvClient(buffer, bytes)))
+				{
+					request.port = -4;
+					return; // The server will clean itself up after timeout. 
+				}	
+			}
+		}
+	}
+	
+	// We got all the data.
+	// Note, for filenames I appended the ends with \n, so it will be printable.
+	char* data = new char[fileS + 1]; // +1 to add the \0
+	int pos = 0;
+	for(int i = 0; i < (int)blocks.size(); i++)
+	{
+		char* blockData = NULL;
+		int dataSize;
+		blocks[i]->getData(blockData, &dataSize);
+		
+		for(int j = 0; j < dataSize; j++)
+		{
+			data[pos + j] = blockData[j];
+		}
+		
+		delete[] blockData;
+		pos += dataSize;
+	}	
+	
+	data[fileS] = '\0';
+	std::cout << data << std::endl;
 }
 
 void FileDownloader::handleDownload()

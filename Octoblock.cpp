@@ -71,7 +71,7 @@ bool Octoblock::recvClient(char* data, int size)
 	return rv;
 }
 
-int Octoblock::recvServer(char* data, int size)
+int Octoblock::recvServer(const char* data, int size)
 {
 	if(size < 3)
 		return false;
@@ -105,9 +105,45 @@ bool Octoblock::serverSendData()
 	return true;
 }
 
+bool Octoblock::requestAcks()
+{
+	bool rv = true;
+	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
+		if(!hasLegAck(legs[i]->getLegNum()))
+			rv &= legs[i]->serverAskForAck();
+		
+	return rv;
+}
+
+bool Octoblock::requestRetrans()
+{
+	bool rv = true;
+	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
+		if(!hasLegAck(legs[i]->getLegNum()))
+			rv &= legs[i]->clientAskForRetransmit();
+		
+	return rv;
+}
+
 bool Octoblock::complete()
 {
 	return acksNeeded == 0;
+}
+
+void Octoblock::getData(char* store, int* dataSize)
+{
+	store = new char[size];
+	int pos = 0;
+	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
+	{
+		for(int j = 0; j < legs[i]->getDataSize(); j++)
+		{
+			store[pos + j] = legs[i]->getData()[j];
+		}
+		
+		pos += legs[i]->getDataSize();
+	}	
+	*dataSize = size;
 }
 
 bool Octoblock::hasLegAck(char legNum)
@@ -137,22 +173,20 @@ int Octoblock::legNumToIndex(char legNum)
 	return -1;
 }
 
-std::vector<Octoblock> Octoblock::getOctoblocks(int fileSize, FileDownloader* downloader)
+void Octoblock::getOctoblocks(std::vector<Octoblock*>* store, int fileSize, FileDownloader* downloader)
 {
-	std::vector<Octoblock> rv;
-	
 	int blocks = ceil((double)fileSize / (double)OCTOBBLOCK_MAX);
 	int blkNum = 0;
 	for(; blkNum < blocks - 1; blkNum++) // The last block may be split into a tiny block, so -1
 	{
-		rv.push_back(Octoblock(blkNum, std::min(fileSize, OCTOBBLOCK_MAX), downloader));
+		store->push_back(new Octoblock(blkNum, std::min(fileSize, OCTOBBLOCK_MAX), downloader));
 		fileSize -= OCTOBBLOCK_MAX;
 	}
 	
 	// We have one block left here. 
 	if(fileSize % LEGS_IN_TRANSIT == 0) // We can have 8 equal legs, so no tiny block.
 	{
-		rv.push_back(Octoblock(blkNum, fileSize, downloader));
+		store->push_back(new Octoblock(blkNum, fileSize, downloader));
 	}
 	else
 	{
@@ -160,31 +194,27 @@ std::vector<Octoblock> Octoblock::getOctoblocks(int fileSize, FileDownloader* do
 		int normalBlockLegSize = (int)legPotentialSize;
 		int tinyBlockLegSize = fileSize % LEGS_IN_TRANSIT;
 		
-		rv.push_back(Octoblock(blkNum, normalBlockLegSize * LEGS_IN_TRANSIT, downloader));
+		store->push_back(new Octoblock(blkNum, normalBlockLegSize * LEGS_IN_TRANSIT, downloader));
 		blkNum++;
 		
-		rv.push_back(Octoblock(blkNum, tinyBlockLegSize * LEGS_IN_TRANSIT, downloader));
+		store->push_back(new Octoblock(blkNum, tinyBlockLegSize * LEGS_IN_TRANSIT, downloader));
 	}
-	
-	return rv;
 }
 
-std::queue<Octoblock> Octoblock::getOctoblocks(int fileSize, char* data, FileSender* sender)
+void Octoblock::getOctoblocks(std::queue<Octoblock*>* store, int fileSize, char* data, FileSender* sender)
 {
-	std::queue<Octoblock> rv;
-	
 	int blocks = ceil((double)fileSize / (double)OCTOBBLOCK_MAX);
 	int blkNum = 0;
 	for(; blkNum < blocks - 1; blkNum++) // The last block may be split into a tiny block, so -1
 	{
-		rv.push(Octoblock(blkNum, std::min(fileSize, OCTOBBLOCK_MAX), &data[blkNum * OCTOBBLOCK_MAX], sender));
+		store->push(new Octoblock(blkNum, std::min(fileSize, OCTOBBLOCK_MAX), &data[blkNum * OCTOBBLOCK_MAX], sender));
 		fileSize -= OCTOBBLOCK_MAX;
 	}
 	
 	// We have one block left here. 
 	if(fileSize % LEGS_IN_TRANSIT == 0) // We can have 8 equal legs, so no tiny block.
 	{
-		rv.push(Octoblock(blkNum, fileSize, &data[blkNum * OCTOBBLOCK_MAX], sender));
+		store->push(new Octoblock(blkNum, fileSize, &data[blkNum * OCTOBBLOCK_MAX], sender));
 	}
 	else
 	{
@@ -192,13 +222,11 @@ std::queue<Octoblock> Octoblock::getOctoblocks(int fileSize, char* data, FileSen
 		int normalBlockLegSize = (int)legPotentialSize;
 		int tinyBlockLegSize = fileSize % LEGS_IN_TRANSIT;
 		
-		rv.push(Octoblock(blkNum, normalBlockLegSize * LEGS_IN_TRANSIT, &data[blkNum * OCTOBBLOCK_MAX], sender));
+		store->push(new Octoblock(blkNum, normalBlockLegSize * LEGS_IN_TRANSIT, &data[blkNum * OCTOBBLOCK_MAX], sender));
 		blkNum++;
 		
-		rv.push(Octoblock(blkNum, tinyBlockLegSize * LEGS_IN_TRANSIT, &data[((blkNum - 1) * OCTOBBLOCK_MAX) + (normalBlockLegSize * LEGS_IN_TRANSIT)], sender));
+		store->push(new Octoblock(blkNum, tinyBlockLegSize * LEGS_IN_TRANSIT, &data[((blkNum - 1) * OCTOBBLOCK_MAX) + (normalBlockLegSize * LEGS_IN_TRANSIT)], sender));
 	}
-	
-	return rv;
 }
 
 

@@ -1,6 +1,7 @@
 #ifndef COMMUNICATION_H
 #define COMMUNICATION_H
 
+#include <iostream>
 #include <stdlib.h>
 #include <queue>
 #include <vector>
@@ -77,6 +78,8 @@ class Octoleg
 		
 		int getDataSize();
 		char* getData();
+		
+		char getLegNum();
 	
 	private:
 		char blockNum;
@@ -99,13 +102,18 @@ class Octoblock
 		
 		// If the client moved to the next block, but the last ack did not reach the server than either the server will ask for an ack (which client will ask for retrans), or the client will ask for retransmit (or both).
 		// If this happens then the server will recieve a retransmit for an Octoblock with a different blockNum, so it will realize that the client moved on and will perform a serverSendData. 
-		int recvServer(char* data, int size); // The data is either an ack of recv, or asking for a retransmit. If retrans we call Octoleg.serverSendData() on the associated leg. See defines for return value. 
+		int recvServer(const char* data, int size); // The data is either an ack of recv, or asking for a retransmit. If retrans we call Octoleg.serverSendData() on the associated leg. See defines for return value. 
 		bool serverSendData(); // Sends all of the leg data. Called at the start of the block, or in a very special retransmit case.
 		
-		bool complete(); // Returns true once all acks done.
+		// These are called by the timout manz.
+		bool requestAcks();
+		bool requestRetrans();
 		
-		static std::vector<Octoblock> getOctoblocks(int fileSize, FileDownloader* downloader); // Downloader we go until we hit size, then we loop through again to getData.
-		static std::queue<Octoblock> getOctoblocks(int fileSize, char* data, FileSender* sender); // Sender we keep going till empty
+		bool complete(); // Returns true once all acks done.
+		void getData(char* store, int* dataSize); // Gets all the leg data into one array
+		
+		static void getOctoblocks(std::vector<Octoblock*>* store, int fileSize, FileDownloader* downloader); // Downloader we go until we hit size, then we loop through again to getData.
+		static void getOctoblocks(std::queue<Octoblock*>* store, int fileSize, char* data, FileSender* sender); // Sender we keep going till empty
 		
 	private:
 		char blockNum;
