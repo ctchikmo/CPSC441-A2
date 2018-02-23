@@ -19,14 +19,22 @@ legNum(legNum),
 sender(sender),
 size(size)
 {
-	data = new char[size];
-	for(int i = 0; i <size; i++)
-		data[i] = d[i];
+	serverData = new char[size + 3];
+	serverData[BLOCK_BYTE] = blockNum;
+	serverData[KEY_BYTE] = OCTLEG_KEY;
+	serverData[LEG_BYTE] = legNum;
+	
+	for(int i = 0; i < size; i++)
+		serverData[DATA_START_BYTE + i] = d[i];
 }
 
 Octoleg::~Octoleg()
 {
-	delete[] data;
+	if(data != NULL)
+		delete[] data;
+	
+	else if(serverData != NULL)
+		delete[] serverData;
 }
 
 int Octoleg::getDataSize()
@@ -41,7 +49,7 @@ char* Octoleg::getData()
 
 bool Octoleg::serverSendData()
 {
-	if(send(sender->getClientSocket(), data, size, MSG_NOSIGNAL) == -1)
+	if(send(sender->getClientSocket(), serverData, size + 3, MSG_NOSIGNAL) == -1)
 		return false; // The client will handle clean up if this happens.
 	
 	return true;
@@ -49,22 +57,53 @@ bool Octoleg::serverSendData()
 
 bool Octoleg::serverAskForAck()
 {
+	char askAck[3];
+	askAck[BLOCK_BYTE] = blockNum;
+	askAck[KEY_BYTE] = ASK_ACK_KEY;
+	askAck[LEG_BYTE] = legNum;
 	
+	if(send(sender->getClientSocket(), askAck, sizeof(askAck), MSG_NOSIGNAL) == -1)
+		return false; // The client will handle clean up if this happens.
+	
+	return true;
 }
 
-bool Octoleg::clientRecvFileData(char* data, int size)
+bool Octoleg::clientRecvFileData(char* d, int s)
 {
+	// If the data is not the excpected size we return.
+	if(s != size)
+		return false;
 	
+	for(int i = 0; i < s; i++)
+		data[i] = d[i];
+	
+	return true;
 }
 
 bool Octoleg::clientSendAck()
 {
+	char sendAck[3];
+	sendAck[BLOCK_BYTE] = blockNum;
+	sendAck[KEY_BYTE] = ACK_KEY;
+	sendAck[LEG_BYTE] = legNum;
 	
+	if(send(sender->getClientSocket(), sendAck, sizeof(sendAck), MSG_NOSIGNAL) == -1)
+		return false; // The client will handle clean up if this happens.
+	
+	return true;
 }
 
 bool Octoleg::clientAskForRetransmit()
 {
-	serverSendData();
+	char askRetrans[3];
+	askRetrans[BLOCK_BYTE] = blockNum;
+	askRetrans[KEY_BYTE] = ASK_TRANS_KEY;
+	askRetrans[LEG_BYTE] = legNum;
+	
+	if(send(sender->getClientSocket(), askRetrans, sizeof(askRetrans), MSG_NOSIGNAL) == -1)
+		return false; // The server will handle clean up if this happens.
+	
+	return true;
 }
 
 

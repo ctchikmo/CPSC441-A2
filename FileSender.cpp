@@ -98,6 +98,27 @@ void FileSender::handleFileList()
 	for(int i = 0; i < (int)filenames.size(); i++)
 		size += filenames[i].size() + 1; // +1 for the \0 which will be included in its printout.
 	
+	std::string sizeString = to_string(size);
+	if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the filesize. 
+		return; // Client will time out.
+		
+	char toSend[size];
+	int pos = 0;
+	for(int i = 0; i < (int)filenames.size(); i++)
+	{
+		for(int j = 0; j < filenames[i].size(); j++)
+		{
+			toSend[pos + j] = filenames[i][j];
+		}
+		
+		filenames[pos + filenames[i].size()] = '\0';
+		pos += filenames[i].size() + 1;
+	}
+
+	std::queue<Octoblock> blocks = Octoblock::getOctoblocks(size, toSend, this);
+	Octoblock current = blocks.front();
+	blocks.pop();
+	
 	while(flag_running)
 	{
 		std::string handleThis;
