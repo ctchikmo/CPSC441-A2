@@ -92,7 +92,7 @@ bool Octoleg::clientSendAck()
 	sendAck[KEY_BYTE] = ACK_KEY;
 	sendAck[LEG_BYTE] = legNum;
 	
-	if(send(sender->getClientSocket(), sendAck, sizeof(sendAck), MSG_NOSIGNAL) == -1)
+	if(sendto(downloader->getServSocket(), sendAck, sizeof(sendAck), MSG_NOSIGNAL, (struct sockaddr*)downloader->getServAddress(), sizeof(*downloader->getServAddress())) == -1)
 		return false; // The client will handle clean up if this happens.
 	
 	return true;
@@ -105,7 +105,7 @@ bool Octoleg::clientAskForRetransmit()
 	askRetrans[KEY_BYTE] = ASK_TRANS_KEY;
 	askRetrans[LEG_BYTE] = legNum;
 	
-	if(send(sender->getClientSocket(), askRetrans, sizeof(askRetrans), MSG_NOSIGNAL) == -1)
+	if(sendto(downloader->getServSocket(), askRetrans, sizeof(askRetrans), MSG_NOSIGNAL, (struct sockaddr*)downloader->getServAddress(), sizeof(*downloader->getServAddress())) == -1)
 		return false; // The server will handle clean up if this happens.
 	
 	return true;

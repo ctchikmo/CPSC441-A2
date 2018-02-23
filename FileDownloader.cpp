@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <cstring> // memset
 
 FileDownloader::FileDownloader(DownloadManager* downloadManager, int threadIndex):
 downloadManager(downloadManager),
@@ -54,6 +55,11 @@ int FileDownloader::getThreadIndex()
 	return threadIndex;
 }
 
+struct sockaddr_in* FileDownloader::getServAddress()
+{
+	return &address;
+}
+
 void FileDownloader::details()
 {
 	std::cout << "Currently Downloading: " << request.filename << ", from: " << request.ip << ", on port: " << request.port << std::endl;
@@ -94,21 +100,26 @@ void FileDownloader::awaitRequest()
 		// Get the socket to use and set it up. 
 		servSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		
-		struct sockaddr_in address;
+		// There are 2 addresses, the one we send on to the server, and the one with the random port we bind to, to recv.
+		struct sockaddr_in recvAddress;
+		recvAddress.sin_family = AF_INET; // IPV4 byte ordering
+		recvAddress.sin_addr.s_addr = INADDR_ANY; // Use any/all of the computers registered IPs.
+		recvAddress.sin_port = htons(9363); // Random port.
+		
+		memset((sockaddr_in*)&address, 0, sizeof(address));
 		address.sin_family = AF_INET; // IPV4 byte ordering
+		address.sin_port = htons(request.port);
 		if(inet_pton(AF_INET, request.ip.c_str(), &address.sin_addr) == 1) // Convert the ip to byte form. (1 means good)
 		{
-			address.sin_port = htons(request.port);
-		
-			if(connect(servSocket, (struct sockaddr*)&address, sizeof(address)) < 0) // UDP connect just sets default sendto 
+			if(bind(servSocket, (struct sockaddr*) &recvAddress, sizeof(recvAddress)) < 0) // Bind to the recvAddress so we can get data. 
 				request.port = -3;
-			
+				
 			else // we good
 			{
 				if(request.type == RequestType::DOWNLOAD)
-					handleDownload();
+					handleDownload(ntohs(recvAddress.sin_port));
 				else
-					fetchFileList();	
+					fetchFileList(9363);	
 			}
 		}
 		else
@@ -118,12 +129,18 @@ void FileDownloader::awaitRequest()
 	}
 }
 
-void FileDownloader::fetchFileList()
+void FileDownloader::fetchFileList(int recvPort)
 {
+	std::cout << recvPort << std::endl;
+	
 	// Connect to the server and let it know we are asking for the file list. 
 	char opener[OPENER_SIZE]; // Opener just sends the requst type and the file desired. Here it is the list command, so no file.
 	opener[OPENER_POS] = FILE_LIST;
-	if(send(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL) == -1)
+	std::string str_recvPort = std::to_string(recvPort);
+	for(int i = 0; i < (int)str_recvPort.size(); i++)
+		opener[OPENER_RECVPORT + i] = str_recvPort[i];
+	
+	if(sendto(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
 	{
 		request.port = -4;
 		return; // The server will clean itself up after timeout. 
@@ -155,7 +172,7 @@ void FileDownloader::fetchFileList()
 		if(blocks[current]->complete())
 		{
 			current++;
-			if(current > (int)blocks.size())
+			if(current >= (int)blocks.size())
 				break;
 		}
 		else
@@ -178,6 +195,8 @@ void FileDownloader::fetchFileList()
 		}
 	}
 	
+	std::cout << "done" << std::endl;
+	
 	// We got all the data.
 	// Note, for filenames I appended the ends with \n, so it will be printable.
 	char* data = new char[fileS + 1]; // +1 to add the \0
@@ -197,11 +216,12 @@ void FileDownloader::fetchFileList()
 		pos += dataSize;
 	}	
 	
+	std::cout << "nop" << std::endl;
 	data[fileS] = '\0';
 	std::cout << data << std::endl;
 }
 
-void FileDownloader::handleDownload()
+void FileDownloader::handleDownload(int recvPort)
 {
 	
 }

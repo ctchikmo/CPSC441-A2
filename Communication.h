@@ -8,8 +8,9 @@
 
 #define SERVER_BUFFER	1500
 
-#define OPENER_SIZE 	1
+#define OPENER_SIZE 	10
 #define OPENER_POS		0
+#define OPENER_RECVPORT 1
 #define FILE_LIST 		0x0
 #define FILE_DOWNLOAD	0x1
 
@@ -123,6 +124,7 @@ class Octoblock
 		
 		bool hasLegAck(char legNum);
 		int legNumToIndex(char legNum);
+		char indexToLegNum(int index);
 };
 
 #endif

@@ -143,6 +143,17 @@ void FileSender::handleFileList()
 		pthread_mutex_unlock(&requestMutex);
 		
 		// At this point handleThis is safe to use. 
+		int rvMessage = current->recvServer(handleThis.c_str(), handleThis.size());
+		if(rvMessage == RECV_SERVER_ERROR)
+			return;
+		else if(rvMessage == RECV_SERVER_DIF_BLOCK)
+		{
+			current = blocks.front();
+			blocks.pop();
+			
+			if(!(current->serverSendData()))
+				return;
+		}
 		
 		if(current->complete())
 		{
@@ -157,9 +168,6 @@ void FileSender::handleFileList()
 					return;
 			}
 		}
-		else
-			if(!(current->recvServer(handleThis.c_str(), handleThis.size())))
-				return;
 	}
 }
 

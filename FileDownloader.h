@@ -5,6 +5,9 @@
 
 #include <pthread.h>
 #include <string>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 /*
 	std::ofstream outfile(directory.append("/test.txt"));
@@ -23,6 +26,7 @@ class FileDownloader
 		
 		void beginRequest(Request requst);
 		int getServSocket();
+		struct sockaddr_in* getServAddress();
 		
 		int getThreadIndex();
 		void details(); // Called via the user thread
@@ -40,10 +44,11 @@ class FileDownloader
 		bool flag_running = true;
 		Request request; // A port value of >= 0 means good, -1 means startup, -2 means finished request.
 		int servSocket = -1;
+		struct sockaddr_in address;
 		
 		void awaitRequest();
-		void fetchFileList();
-		void handleDownload();
+		void fetchFileList(int recvPort);
+		void handleDownload(int recvPort);
 		
 		static void* startFileDownloaderThread(void* fileDownloader); // Called from this classes ctor when creating its own pthread.
 };

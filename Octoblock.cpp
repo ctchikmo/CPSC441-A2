@@ -12,7 +12,7 @@ size(size)
 		legSize = 1;
 	
 	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
-		legs[i] = new Octoleg(blockNum, i, downloader, legSize);
+		legs[i] = new Octoleg(blockNum, indexToLegNum(i), downloader, legSize);
 }
 
 Octoblock::Octoblock(char blockNum, int size, char* data, FileSender* sender):
@@ -27,14 +27,14 @@ size(size)
 	{
 		if(i * legSize < size) // This goes to the else when there are less than 8 bytes and we are past what the file held.
 		{
-			legs[i] = new Octoleg(blockNum, i, sender, legSize, &data[i * legSize]);
+			legs[i] = new Octoleg(blockNum, indexToLegNum(i), sender, legSize, &data[i * legSize]);
 		}
 		else
 		{
 			char temp[1];
 			temp[0] = '\0';
 			
-			legs[i] = new Octoleg(blockNum, i, sender, legSize, temp);
+			legs[i] = new Octoleg(blockNum, indexToLegNum(i), sender, legSize, temp);
 		}
 	}
 }
@@ -83,7 +83,8 @@ int Octoblock::recvServer(const char* data, int size)
 	bool rv = false;
 	if(type == ACK_KEY)
 	{
-		rv = acksNeeded &= ~data[LEG_BYTE];
+		rv = true;
+		acksNeeded &= ~data[LEG_BYTE];
 	}
 	else if(type == ASK_TRANS_KEY) // This occurs either because we actually need a retransmit for that leg, or because the final ack (letting server move blocks) was lost & client is now on different block. 
 	{
@@ -169,6 +170,38 @@ int Octoblock::legNumToIndex(char legNum)
 		return 6;
 	else if(legNum == OCTOLEG_8)
 		return 7;
+	
+	return -1;
+}
+
+char Octoblock::indexToLegNum(int index)
+{
+	switch(index)
+	{
+		case 0:
+			return OCTOLEG_1;
+			
+		case 1:
+			return OCTOLEG_2;
+		
+		case 2:
+			return OCTOLEG_3;
+		
+		case 3:
+			return OCTOLEG_4;
+		
+		case 4:
+			return OCTOLEG_5;
+		
+		case 5:
+			return OCTOLEG_6;
+		
+		case 6:
+			return OCTOLEG_7;
+		
+		case 7:
+			return OCTOLEG_8;
+	}
 	
 	return -1;
 }

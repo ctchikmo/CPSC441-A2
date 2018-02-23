@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h> // Check if file is directory
+#include <stdio.h>
 
 Server::Server(int port, int threads):
 port(port),
@@ -190,14 +191,15 @@ void Server::reciveData()
 		struct sockaddr_in clientInfo; // Very inportant, clientInfo stores the part of the quartent of info (client port) which diferentiates things.
 		int clientInfoLen = sizeof(clientInfo);
 		
-		int recBytes = recvfrom(serverSocket, buffer, SERVER_BUFFER, 0, (struct sockaddr*) &clientInfo, &clientInfoLen);
+		int recBytes = recvfrom(serverSocket, buffer, SERVER_BUFFER, 0, (struct sockaddr*)&clientInfo, &clientInfoLen);
 		if(recBytes < 0)
 		{
 			std::cout << "Server error recieving data." << std::endl;
+			perror("Error");
 			exit(-1);
 		}
 		
-		// Check if the client is already being handled, if so hand the data off:
+		// The client is actually listening on a port sent in the opener. The source port needs to be kept here tho.
 		int cliPort = ntohs(clientInfo.sin_port); // Convert the byte form port to an int 
 		bool found = false;
 		pthread_mutex_lock(&senderMutex);
@@ -212,26 +214,30 @@ void Server::reciveData()
 			}
 		}
 		pthread_mutex_unlock(&senderMutex);
+		
 		if(found)
 		{
 			delete[] buffer;
 			continue;
 		}
 		
-		int toFileSender = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if(toFileSender < 0)
+		std::string fileSenderData(buffer, recBytes);
+		int clientRecvPort = std::stoi(&fileSenderData[OPENER_RECVPORT]);
+		std::cout << clientRecvPort << std::endl;
+		clientInfo.sin_port = htons(clientRecvPort);
+		
+		int clientSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if(clientSock < 0)
 		{
 			std::cout << "Error creating fileSender socket" << std::endl;
 			exit(-1);
 		}
 		
-		if(connect(toFileSender, (struct sockaddr *)&clientInfo, clientInfoLen) < 0)
+		if(connect(clientSock, (struct sockaddr *)&clientInfo, clientInfoLen) < 0)
 		{
 			std::cout << "Error connecting fileSender socket" << std::endl;
 			exit(-1);
 		}
-		
-		std::string fileSenderData(buffer, recBytes);
 		
 		FileSender* sender;
 		pthread_mutex_lock(&senderMutex);
@@ -245,8 +251,8 @@ void Server::reciveData()
 		}
 		pthread_mutex_unlock(&senderMutex);
 		
-		// At this point we have the FileSender. 
-		sender->beginRequest(toFileSender, cliPort, fileSenderData);
+		// At this point we have the FileSender. We send the server socket as the client side is connected and expecting data from the source port assigned to this socket. Nothing else will be accepted. 
+		sender->beginRequest(clientSock, cliPort, fileSenderData);
 		
 		delete[] buffer;
 	}

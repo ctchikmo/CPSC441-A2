@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <string>
 #include <queue>
+#include <sys/socket.h>
 
 class Server; // Forward Declaration
 
@@ -19,7 +20,7 @@ class FileSender
 		void beginRequest(int clientSocket, int port, std::string request);
 		void handleData(char* data, int recBytes);
 		int getClientSocket();
-		int getClientPort();
+		int getClientPort(); // Port is used by server to direct recv traffic.
 		
 		void quit(); // Called from the user thread
 		
