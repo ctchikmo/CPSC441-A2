@@ -105,7 +105,7 @@ void FileDownloader::awaitRequest()
 		struct sockaddr_in recvAddress;
 		recvAddress.sin_family = AF_INET; // IPV4 byte ordering
 		recvAddress.sin_addr.s_addr = INADDR_ANY; // Use any/all of the computers registered IPs.
-		recvAddress.sin_port = htons(9363); // Random port.
+		recvAddress.sin_port = htons(0); // Random port.
 		
 		memset((sockaddr_in*)&address, 0, sizeof(address));
 		address.sin_family = AF_INET; // IPV4 byte ordering
@@ -117,10 +117,20 @@ void FileDownloader::awaitRequest()
 				
 			else // we good
 			{
+				// I can not simply use the port given to recvAddress after the bind, as recvAddress is not updated, I need to read the sockets "name" for the new port. 
+				struct sockaddr_in myAddress;
+				int len = sizeof(myAddress);
+				if(getsockname(servSocket, (struct sockaddr*) &myAddress, &len) < 0)
+				{
+					std::cout << "Error reading new client bind socket" << std::endl;
+					exit(1);
+				}
+				int myRecvPort = ntohs(myAddress.sin_port); // Convert the byte form port to an int 
+				
 				if(request.type == RequestType::DOWNLOAD)
-					handleDownload(ntohs(recvAddress.sin_port));
+					handleDownload(myRecvPort);
 				else
-					fetchFileList(9363);	
+					fetchFileList(myRecvPort);	
 			}
 		}
 		else
@@ -164,8 +174,6 @@ void FileDownloader::handleDownload(int recvPort)
 
 void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int* dataSize)
 {
-	std::cout << recvPort << std::endl;
-	
 	if(sendto(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
 	{
 		request.port = -4;

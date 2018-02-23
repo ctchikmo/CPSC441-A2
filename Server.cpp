@@ -199,7 +199,11 @@ void Server::reciveData()
 			exit(-1);
 		}
 		
-		// The client is actually listening on a port sent in the opener. The source port needs to be kept here tho.
+		// The client is actually listening on a port sent in the opener. The source port needs to be kept here tho to compare from the port the client sends on.
+		// There are 2 ports (1 for send, 1 for recv) becuase the thing would crash if while a thread was blocking on recv another tried to sendTo on that port. Docs says it should work, and sockets are just numbers
+		// But w/e. 
+		// PS: after some testing the port the client sends on and the one i bind to arbitrailly actually seem to end up matching, im not sure if this is guranteed though, so leaving
+		// The requirement to send and read the port as the the payload will remain in. 
 		int cliPort = ntohs(clientInfo.sin_port); // Convert the byte form port to an int 
 		bool found = false;
 		pthread_mutex_lock(&senderMutex);
@@ -223,7 +227,7 @@ void Server::reciveData()
 		
 		std::string fileSenderData(buffer, recBytes);
 		int clientRecvPort = std::stoi(&fileSenderData[OPENER_RECVPORT]);
-		std::cout << clientRecvPort << std::endl;
+		std::cout << cliPort  << "::" << clientRecvPort << std::endl;
 		clientInfo.sin_port = htons(clientRecvPort);
 		
 		int clientSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
