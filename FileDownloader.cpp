@@ -195,30 +195,19 @@ void FileDownloader::fetchFileList(int recvPort)
 		}
 	}
 	
-	std::cout << "done" << std::endl;
-	
 	// We got all the data.
 	// Note, for filenames I appended the ends with \n, so it will be printable.
-	char* data = new char[fileS + 1]; // +1 to add the \0
+	char* data = new char[fileS];
 	int pos = 0;
 	for(int i = 0; i < (int)blocks.size(); i++)
 	{
-		char* blockData = NULL;
-		int dataSize;
-		blocks[i]->getData(blockData, &dataSize);
-		
-		for(int j = 0; j < dataSize; j++)
-		{
-			data[pos + j] = blockData[j];
-		}
-		
-		delete[] blockData;
-		pos += dataSize;
+		blocks[i]->getData(data + pos);
+		pos += blocks[i]->getSize();
 	}	
 	
-	std::cout << "nop" << std::endl;
-	data[fileS] = '\0';
-	std::cout << data << std::endl;
+	std::string print(data, fileS);
+	std::cout << print << std::endl;
+	delete[] data;
 }
 
 void FileDownloader::handleDownload(int recvPort)

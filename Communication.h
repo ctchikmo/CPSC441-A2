@@ -111,7 +111,8 @@ class Octoblock
 		bool requestRetrans();
 		
 		bool complete(); // Returns true once all acks done.
-		void getData(char* store, int* dataSize); // Gets all the leg data into one array
+		int getSize();
+		void getData(char* store); // Gets all the leg data into one array
 		
 		static void getOctoblocks(std::vector<Octoblock*>* store, int fileSize, FileDownloader* downloader); // Downloader we go until we hit size, then we loop through again to getData.
 		static void getOctoblocks(std::queue<Octoblock*>* store, int fileSize, char* data, FileSender* sender); // Sender we keep going till empty

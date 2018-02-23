@@ -131,20 +131,25 @@ bool Octoblock::complete()
 	return acksNeeded == 0;
 }
 
-void Octoblock::getData(char* store, int* dataSize)
+int Octoblock::getSize()
 {
-	store = new char[size];
+	return size;
+}
+
+void Octoblock::getData(char* store)
+{
 	int pos = 0;
 	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
 	{
-		for(int j = 0; j < legs[i]->getDataSize(); j++)
+		for(int j = 0; j < legs[i]->getDataSize() && ((pos + j) < size); j++)
 		{
 			store[pos + j] = legs[i]->getData()[j];
 		}
 		
 		pos += legs[i]->getDataSize();
+		if(pos >= size)
+			break; // Can happen if there is a tiny block.
 	}	
-	*dataSize = size;
 }
 
 bool Octoblock::hasLegAck(char legNum)
