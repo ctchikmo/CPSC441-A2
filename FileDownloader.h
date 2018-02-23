@@ -49,6 +49,7 @@ class FileDownloader
 		void awaitRequest();
 		void fetchFileList(int recvPort);
 		void handleDownload(int recvPort);
+		void generalHandler(int recvPort, char* opener, char** data, int* dataSize);
 		
 		static void* startFileDownloaderThread(void* fileDownloader); // Called from this classes ctor when creating its own pthread.
 };

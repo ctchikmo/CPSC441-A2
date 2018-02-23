@@ -26,6 +26,8 @@ class DownloadManager
 		void setUser(User* user);
 		void quit(); // Called from the user thread
 		
+		User* user;
+		
 	private:	
 		bool flag_running = true;
 		pthread_t thread;
@@ -41,8 +43,6 @@ class DownloadManager
 		std::string requestAdder(RequestType type, std::string ip, int port, std::string filename);
 		
 		static void* startDownloadManagerThread(void* downloadManager);
-	
-		User* user;
 };
 
 #endif

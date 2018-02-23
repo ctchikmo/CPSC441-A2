@@ -13,6 +13,7 @@
 #define OPENER_RECVPORT 1
 #define FILE_LIST 		0x0
 #define FILE_DOWNLOAD	0x1
+#define FILE_SIZE_BUFF	8
 
 #define OCTOBBLOCK_MAX		8888
 #define OCTOLEG_MAX_SIZE	1111

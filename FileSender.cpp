@@ -1,6 +1,7 @@
 #include "FileSender.h"
 #include "Server.h"
 #include "Communication.h"
+#include "User.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -98,10 +99,6 @@ void FileSender::handleFileList()
 	for(int i = 0; i < (int)filenames.size(); i++)
 		size += filenames[i].size() + 1; // +1 for the \n which will be included in its printout.
 	
-	std::string sizeString = std::to_string(size);
-	if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the filesize. 
-		return; // Client will time out.
-	
 	char toSend[size];
 	int pos = 0;
 	for(int i = 0; i < (int)filenames.size(); i++)
@@ -115,17 +112,34 @@ void FileSender::handleFileList()
 		pos += filenames[i].size() + 1;
 	}
 	
+	server->user->bufferMessage("Server sending file list to client on port " + std::to_string(clientPort));
+	generalHandler(size, toSend);
+	server->user->bufferMessage("Server done sending file list to client on port " + std::to_string(clientPort));
+}
+
+void FileSender::handleFile()
+{
+	std::cout << 1 << std::endl;
+}
+
+// I would perfer streaming the bytes, incase we get files bigger than the available ram, but thats way out of scope of this assignment. 
+bool FileSender::generalHandler(int size, char* toSend)
+{
+	std::string sizeString = std::to_string(size);
+	if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the filesize. 
+		return false; // Client will time out.
+		
 	std::queue<Octoblock*> blocks;
 	Octoblock::getOctoblocks(&blocks, size, toSend, this);
 	
 	if(blocks.size() == 0)
-		return;
+		return true;
 	
 	Octoblock* current = blocks.front();
 	blocks.pop();
 	
 	if(!(current->serverSendData()))
-		return;
+		return false;
 	
 	while(flag_running)
 	{
@@ -145,14 +159,14 @@ void FileSender::handleFileList()
 		// At this point handleThis is safe to use. 
 		int rvMessage = current->recvServer(handleThis.c_str(), handleThis.size());
 		if(rvMessage == RECV_SERVER_ERROR)
-			return;
+			return false;
 		else if(rvMessage == RECV_SERVER_DIF_BLOCK)
 		{
 			current = blocks.front();
 			blocks.pop();
 			
 			if(!(current->serverSendData()))
-				return;
+				return false;
 		}
 		
 		if(current->complete())
@@ -165,15 +179,12 @@ void FileSender::handleFileList()
 				blocks.pop();
 				
 				if(!(current->serverSendData()))
-					return;
+					return false;
 			}
 		}
 	}
-}
-
-void FileSender::handleFile()
-{
-	std::cout << 1 << std::endl;
+	
+	return true;
 }
 	
 void* FileSender::startFileSenderThread(void* fileSender)

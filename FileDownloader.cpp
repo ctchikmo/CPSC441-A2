@@ -2,6 +2,7 @@
 #include "DownloadManager.h"
 #include "Request.h"
 #include "Communication.h"
+#include "User.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -131,14 +132,39 @@ void FileDownloader::awaitRequest()
 
 void FileDownloader::fetchFileList(int recvPort)
 {
-	std::cout << recvPort << std::endl;
-	
 	// Connect to the server and let it know we are asking for the file list. 
 	char opener[OPENER_SIZE]; // Opener just sends the requst type and the file desired. Here it is the list command, so no file.
 	opener[OPENER_POS] = FILE_LIST;
 	std::string str_recvPort = std::to_string(recvPort);
 	for(int i = 0; i < (int)str_recvPort.size(); i++)
 		opener[OPENER_RECVPORT + i] = str_recvPort[i];
+	
+	char* data = NULL;
+	int dataSize = 0;
+	generalHandler(recvPort, opener, &data, &dataSize);	
+	
+	if(request.port == -4)
+		return;
+	
+	if(dataSize != 0)
+	{
+		std::string print(data, dataSize);
+		downloadManager->user->bufferMessage(print);
+	}
+	else
+		downloadManager->user->bufferMessage("No Files Hosted");
+	
+	delete[] data;
+}
+
+void FileDownloader::handleDownload(int recvPort)
+{
+	
+}
+
+void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int* dataSize)
+{
+	std::cout << recvPort << std::endl;
 	
 	if(sendto(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
 	{
@@ -147,7 +173,7 @@ void FileDownloader::fetchFileList(int recvPort)
 	}
 	
 	// Get the file size so we can run the Octoblock algorithm here, then start waiting for recvs. 
-	char fileSize[8];
+	char fileSize[FILE_SIZE_BUFF];
 	int recBytes = recv(servSocket, fileSize, sizeof(fileSize), 0);
 	if(recBytes < 0)
 	{
@@ -163,7 +189,7 @@ void FileDownloader::fetchFileList(int recvPort)
 	
 	if(blocks.size() == 0)
 	{
-		std::cout << "No Files Hosted" << std::endl;
+		*dataSize = 0;
 		return;
 	}
 	
@@ -196,23 +222,14 @@ void FileDownloader::fetchFileList(int recvPort)
 	}
 	
 	// We got all the data.
-	// Note, for filenames I appended the ends with \n, so it will be printable.
-	char* data = new char[fileS];
+	*dataSize = fileS;
+	*data = new char[fileS];
 	int pos = 0;
 	for(int i = 0; i < (int)blocks.size(); i++)
 	{
-		blocks[i]->getData(data + pos);
+		blocks[i]->getData(*data + pos);
 		pos += blocks[i]->getSize();
-	}	
-	
-	std::string print(data, fileS);
-	std::cout << print << std::endl;
-	delete[] data;
-}
-
-void FileDownloader::handleDownload(int recvPort)
-{
-	
+	}
 }
 
 void* FileDownloader::startFileDownloaderThread(void* fileDownloader)

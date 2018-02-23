@@ -43,6 +43,7 @@ class FileSender
 		// RequestMutex is used on these as that mutex is safe to use at this time. It is only enabled while waiting for a connection. 
 		void handleFileList(); 
 		void handleFile();
+		bool generalHandler(int size, char* toSend);
 		std::queue<std::string> dataQueue;
 	
 		static void* startFileSenderThread(void* fileSender); // Called from this classes ctor when creating its own pthread.

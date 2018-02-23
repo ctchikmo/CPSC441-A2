@@ -33,11 +33,12 @@ class Server
 		pthread_mutex_t* getReadyMutex();
 		pthread_cond_t* getReadyCond();
 		
+		User* user; // User is used for accessing the current directory (where the files are hosted)
+		
 	private:
 		bool flag_ready = false;
 		int port = -1;
 		std::string ip;
-		User* user; // User is used for accessing the current directory (where the files are hosted)
 		pthread_t thread;
 		pthread_mutex_t readyMutex; // The ready mutex and cond are used to indicate that the server has completed startup (at least one FileSender up, and Server is about to open for connections.)
 		pthread_cond_t readyCond;
