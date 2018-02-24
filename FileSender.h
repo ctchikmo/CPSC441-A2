@@ -22,6 +22,9 @@ class FileSender
 		int getClientSocket();
 		int getClientPort(); // Port is used by server to direct recv traffic.
 		
+		pthread_mutex_t* getMutex();
+		pthread_cond_t* getCond();
+		
 		void quit(); // Called from the user thread
 		
 	private:

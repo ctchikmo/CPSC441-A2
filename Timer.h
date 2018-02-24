@@ -68,7 +68,7 @@ Timer<T>::~Timer()
 template <typename T>
 void Timer<T>::countDown()
 {
-	while(!attemptsFinished() && running)
+	while(running && !attemptsFinished())
 	{
 		pthread_mutex_lock(&timerMutex);
 		{
@@ -139,7 +139,7 @@ void* Timer<T>::startupTimerThread(void* timer)
 	Timer* t = (Timer*)timer;
 	t->countDown();
 	
-	delete t;
+	// Timers are only made on the stack, so no need to delete. (we get abort error if we do)
 	return NULL;
 }
 

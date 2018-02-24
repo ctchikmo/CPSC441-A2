@@ -129,6 +129,7 @@ class Octoblock
 		int size = 0;
 		Octoleg* legs[LEGS_IN_TRANSIT];
 		char acksNeeded = 0xFF; // Once this reaches 0 we are good to go. 
+		FileSender* sender; // We need to signal the sender mutex waiting on server input to wake up during a timeout call to requestAcks. Download uses shutdown(socket) to do this. 
 		
 		bool hasLegAck(char legNum);
 		int legNumToIndex(char legNum);

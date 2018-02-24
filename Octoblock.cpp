@@ -1,7 +1,9 @@
 #include "Communication.h"
+#include "FileSender.h"
 
 #include <sys/socket.h>
 #include <math.h>
+#include <pthread.h>
 
 Octoblock::Octoblock(char blockNum, int size, FileDownloader* downloader):
 blockNum(blockNum),
@@ -17,7 +19,8 @@ size(size)
 
 Octoblock::Octoblock(char blockNum, int size, char* data, FileSender* sender):
 blockNum(blockNum),
-size(size)
+size(size),
+sender(sender)
 {
 	int legSize = size / LEGS_IN_TRANSIT; // This will be 0 in the case of a tiny block with less than 8 bytes. Otherwise its always divisble by 8.
 	if(legSize == 0)
@@ -112,6 +115,12 @@ bool Octoblock::serverSendData()
 
 bool Octoblock::requestAcks()
 {
+	pthread_mutex_lock(sender->getMutex());
+	{
+		pthread_cond_signal(sender->getCond());
+	}
+	pthread_mutex_unlock(sender->getMutex());
+	
 	bool rv = true;
 	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
 		if(!hasLegAck(legs[i]->getLegNum()))

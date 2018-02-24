@@ -71,6 +71,16 @@ int FileSender::getClientPort()
 	return clientPort;
 }
 
+pthread_mutex_t* FileSender::getMutex()
+{
+	return &requestMutex;
+}
+
+pthread_cond_t* FileSender::getCond()
+{
+	return &requestCond;
+}
+
 void FileSender::awaitRequest()
 {
 	while(flag_running)
@@ -169,30 +179,45 @@ void FileSender::handleFile()
 bool FileSender::generalHandler(int size, char* toSend)
 {
 	std::string sizeString = std::to_string(size);
-	if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the filesize. 
+	char sendSize[FILE_SIZE_BUFF];
+	sendSize[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
+	for(int i = 0; i < (int)sizeString.size(); i++)
+		sendSize[FILE_SIZE_START + i] = sizeString[i];
+
+	if(send(clientSocket, sendSize, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1) // Send the filesize. 
 		return false; // Client will time out.
 		
 	// Make sure the client got it (they send an ack)
 	Timer<FileSender> timeFileSizeAck(3, this, &FileSender::fileSizeTimeout, NO_SOC);
 	pthread_mutex_lock(&requestMutex);
 	{
-		while(true)
+		while(flag_running)
 		{
-			while(dataQueue.size() == 0)
+			while(dataQueue.size() == 0 && flag_running && !timeFileSizeAck.attemptsFinished())
 				pthread_cond_wait(&requestCond, &requestMutex);
 		
 			if(timeFileSizeAck.attemptsFinished())
+			{
+				// In this case the timer is already done
+				pthread_mutex_unlock(&requestMutex); 
 				return false;
+			}
 		
-			std::string ack = dataQueue.front();
-			dataQueue.pop();
-			
-			if(ack.size() == FILE_SIZE_BUFF && ack[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)
-				break;
+			if(flag_running)
+			{
+				std::string ack = dataQueue.front();
+				dataQueue.pop();
+				
+				if(ack.size() == FILE_SIZE_BUFF && ack[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)
+					break;
+			}
 		}
 	}
-	pthread_mutex_unlock(&requestMutex);
+	pthread_mutex_unlock(&requestMutex); 
 	timeFileSizeAck.stop();
+	
+	if(!flag_running)
+		return false;
 		
 	std::queue<Octoblock*> blocks;
 	Octoblock::getOctoblocks(&blocks, size, toSend, this);
@@ -213,17 +238,27 @@ bool FileSender::generalHandler(int size, char* toSend)
 		Timer<Octoblock> timeStandard(3, current, &Octoblock::requestAcks, NO_SOC); // When we are not done and cant move on that mains we are only ever waiting on acks!
 		pthread_mutex_lock(&requestMutex);
 		{
-			while(dataQueue.size() == 0)
+			while(dataQueue.size() == 0 && flag_running && !timeStandard.attemptsFinished())
 				pthread_cond_wait(&requestCond, &requestMutex);
 			
-			if(timeFileSizeAck.attemptsFinished())
+			if(timeStandard.attemptsFinished())
+			{
+				// In this case the timer is already done
+				pthread_mutex_unlock(&requestMutex);
 				return false;
+			}
 			
-			handleThis = dataQueue.front();
-			dataQueue.pop();
+			if(flag_running)
+			{
+				handleThis = dataQueue.front();
+				dataQueue.pop();
+			}
 		}
 		pthread_mutex_unlock(&requestMutex);
 		timeStandard.stop(); // If we get anything than we pop out of here and handle it. 
+		
+		if(!flag_running)
+			return false;
 		
 		if(handleThis.size() == FILE_SIZE_BUFF && handleThis[FILE_SIZE_KEY_B] == FILE_SIZE_KEY) // Stray fileSize ack, ignore it. 
 			continue;
@@ -261,6 +296,12 @@ bool FileSender::generalHandler(int size, char* toSend)
 	
 bool FileSender::fileSizeTimeout()
 {
+	pthread_mutex_lock(&requestMutex);
+	{
+		pthread_cond_signal(&requestCond);
+	}
+	pthread_mutex_unlock(&requestMutex);
+	
 	char fileSizeAckReq[FILE_SIZE_BUFF];
 	fileSizeAckReq[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
 	if(send(clientSocket, fileSizeAckReq, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1)
@@ -281,6 +322,12 @@ void* FileSender::startFileSenderThread(void* fileSender)
 void FileSender::quit()
 {
 	flag_running = false;
+	
+	pthread_mutex_lock(&requestMutex);
+	{
+		pthread_cond_signal(&requestCond);
+	}
+	pthread_mutex_unlock(&requestMutex);
 }
 
 
