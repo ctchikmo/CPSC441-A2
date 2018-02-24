@@ -2,6 +2,7 @@
 #include "Server.h"
 #include "Communication.h"
 #include "User.h"
+#include "Timer.h"
 
 #include <iostream>
 #include <stdlib.h>

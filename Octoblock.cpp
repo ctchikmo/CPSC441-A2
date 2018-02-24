@@ -63,9 +63,12 @@ bool Octoblock::recvClient(char* data, int size)
 	}
 	else if(OCTLEG_KEY)
 	{
-		acksNeeded &= ~data[LEG_BYTE];
-		rv = legs[legIndex]->clientRecvFileData(data + DATA_START_BYTE, size - DATA_START_BYTE);
-		rv &= legs[legIndex]->clientSendAck();
+		if(!hasLegAck(data[LEG_BYTE]))
+		{
+			acksNeeded &= ~data[LEG_BYTE];
+			rv = legs[legIndex]->clientRecvFileData(data + DATA_START_BYTE, size - DATA_START_BYTE);
+			rv &= legs[legIndex]->clientSendAck();	
+		}
 	}
 	
 	return rv;
@@ -100,8 +103,9 @@ int Octoblock::recvServer(const char* data, int size)
 bool Octoblock::serverSendData()
 {
 	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
-		if(!legs[i]->serverSendData())
-			return false;
+		if(!hasLegAck(legs[i]->getLegNum()))
+			if(!legs[i]->serverSendData())
+				return false;
 	
 	return true;
 }
