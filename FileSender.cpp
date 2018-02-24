@@ -115,8 +115,10 @@ void FileSender::handleFileList()
 	}
 	
 	server->user->bufferMessage("Server sending file list to client on port " + std::to_string(clientPort));
-	generalHandler(size, toSend);
-	server->user->bufferMessage("Server done sending file list to client on port " + std::to_string(clientPort));
+	if(generalHandler(size, toSend))
+		server->user->bufferMessage("Server done sending file list to client on port " + std::to_string(clientPort));
+	else
+		server->user->bufferMessage("Server had an error sending file list to client on port " + std::to_string(clientPort));
 }
 
 void FileSender::handleFile()
@@ -150,8 +152,10 @@ void FileSender::handleFile()
 		{
 			file.close();
 			server->user->bufferMessage("Server sending " + filename + " to client on port " + std::to_string(clientPort));
-			generalHandler(size, toSend);
-			server->user->bufferMessage("Server done sending " + filename + " to client on port " + std::to_string(clientPort));
+			if(generalHandler(size, toSend))
+				server->user->bufferMessage("Server done sending " + filename + " to client on port " + std::to_string(clientPort));
+			else
+				server->user->bufferMessage("Server had an error sending " + filename + " to client on port " + std::to_string(clientPort));
 		}
 	}
 }

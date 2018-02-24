@@ -251,7 +251,7 @@ void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int
 		}
 		else
 		{
-			char buffer[OCTOLEG_MAX_SIZE];
+			char buffer[OCTOLEG_MAX_SIZE + HEADER_SIZE];
 			int bytes = recv(servSocket, buffer, sizeof(buffer), 0);
 			if(recBytes < 0)
 			{

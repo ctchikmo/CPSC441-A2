@@ -32,6 +32,7 @@
 #define RECV_SERVER_SAME_BLOCK	 0
 #define RECV_SERVER_DIF_BLOCK	 1
 
+#define HEADER_SIZE			3
 #define BLOCK_BYTE			0
 #define KEY_BYTE			1
 #define LEG_BYTE			2

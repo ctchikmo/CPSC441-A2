@@ -19,7 +19,7 @@ legNum(legNum),
 sender(sender),
 size(size)
 {
-	serverData = new char[size + 3];
+	serverData = new char[size + HEADER_SIZE];
 	serverData[BLOCK_BYTE] = blockNum;
 	serverData[KEY_BYTE] = OCTLEG_KEY;
 	serverData[LEG_BYTE] = legNum;
@@ -54,7 +54,7 @@ char Octoleg::getLegNum()
 
 bool Octoleg::serverSendData()
 {
-	if(send(sender->getClientSocket(), serverData, size + 3, MSG_NOSIGNAL) == -1)
+	if(send(sender->getClientSocket(), serverData, size + HEADER_SIZE, MSG_NOSIGNAL) == -1)
 		return false; // The client will handle clean up if this happens.
 	
 	return true;
@@ -62,7 +62,7 @@ bool Octoleg::serverSendData()
 
 bool Octoleg::serverAskForAck()
 {
-	char askAck[3];
+	char askAck[HEADER_SIZE];
 	askAck[BLOCK_BYTE] = blockNum;
 	askAck[KEY_BYTE] = ASK_ACK_KEY;
 	askAck[LEG_BYTE] = legNum;
@@ -87,7 +87,7 @@ bool Octoleg::clientRecvFileData(char* d, int s)
 
 bool Octoleg::clientSendAck()
 {
-	char sendAck[3];
+	char sendAck[HEADER_SIZE];
 	sendAck[BLOCK_BYTE] = blockNum;
 	sendAck[KEY_BYTE] = ACK_KEY;
 	sendAck[LEG_BYTE] = legNum;
@@ -100,7 +100,7 @@ bool Octoleg::clientSendAck()
 
 bool Octoleg::clientAskForRetransmit()
 {
-	char askRetrans[3];
+	char askRetrans[HEADER_SIZE];
 	askRetrans[BLOCK_BYTE] = blockNum;
 	askRetrans[KEY_BYTE] = ASK_TRANS_KEY;
 	askRetrans[LEG_BYTE] = legNum;
