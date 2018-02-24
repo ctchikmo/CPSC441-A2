@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <vector>
+#include <sys/stat.h> // get file size
+#include <fstream> 
 
 //!!!!! IMPORTANT: File sender does not actually recv any data, instead it gets it all from the server from handleData. This is because UDP does not support connecitons, so at the OS level it has no idea where to send. 
 FileSender::FileSender(Server* server, int threadIndex):
@@ -119,7 +121,39 @@ void FileSender::handleFileList()
 
 void FileSender::handleFile()
 {
-	std::cout << 1 << std::endl;
+	std::string filename = "";
+	for(int i = 0; (request[OPENER_FILENAME + i] != '\0'); i++)
+		filename += request[OPENER_FILENAME + i];
+	std::string path = server->user->getDirectory() + "/" + filename;
+	
+	// Inital comunication requires sending file size, in this case that is the bytes required to send all file names. (Handle file gets a filename to send the size for here.)
+	int size = 0;
+	
+	// Thanks @ https://stackoverflow.com/questions/5840148/how-can-i-get-a-files-size-in-c Matts answer
+	struct stat stat_buf;
+    int rc = stat(path.c_str(), &stat_buf);
+    size = (rc == 0 ? stat_buf.st_size : -1);
+	
+	if(size == -1)
+	{
+		server->user->bufferMessage("Server unable to find file: \"" + filename + "\", asked for by client on port " + std::to_string(clientPort));
+		std::string sizeString = "-1";
+		if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the -1 filesize. 
+			return;
+	}
+	else
+	{
+		char toSend[size];
+		std::ifstream file(path, std::ios::binary); // Thanks @ https://stackoverflow.com/questions/18816126/c-read-the-whole-file-in-buffer accepted answer
+
+		if(file.read(toSend, size))
+		{
+			file.close();
+			server->user->bufferMessage("Server sending " + filename + " to client on port " + std::to_string(clientPort));
+			generalHandler(size, toSend);
+			server->user->bufferMessage("Server done sending " + filename + " to client on port " + std::to_string(clientPort));
+		}
+	}
 }
 
 // I would perfer streaming the bytes, incase we get files bigger than the available ram, but thats way out of scope of this assignment. 

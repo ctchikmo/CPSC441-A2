@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring> // memset
+#include <fstream> 
 
 FileDownloader::FileDownloader(DownloadManager* downloadManager, int threadIndex):
 downloadManager(downloadManager),
@@ -128,7 +129,7 @@ void FileDownloader::awaitRequest()
 				int myRecvPort = ntohs(myAddress.sin_port); // Convert the byte form port to an int 
 				
 				if(request.type == RequestType::DOWNLOAD)
-					handleDownload(myRecvPort);
+					fileDownload(myRecvPort);
 				else
 					fetchFileList(myRecvPort);	
 			}
@@ -156,7 +157,7 @@ void FileDownloader::fetchFileList(int recvPort)
 	if(request.port == -4)
 		return;
 	
-	if(dataSize != 0)
+	if(dataSize > 0)
 	{
 		std::string print(data, dataSize);
 		downloadManager->user->bufferMessage(print);
@@ -167,9 +168,41 @@ void FileDownloader::fetchFileList(int recvPort)
 	delete[] data;
 }
 
-void FileDownloader::handleDownload(int recvPort)
+void FileDownloader::fileDownload(int recvPort)
 {
+	// Connect to the server and let it know we are asking for a file
+	char opener[OPENER_SIZE]; // Opener just sends the requst type and the file desired. Here it is the list command, so no file.
+	opener[OPENER_POS] = FILE_DOWNLOAD;
+	std::string str_recvPort = std::to_string(recvPort);
+	for(int i = 0; i < (int)str_recvPort.size(); i++)
+		opener[OPENER_RECVPORT + i] = str_recvPort[i];
 	
+	// A \0 indicates end of file name
+	int i = 0;
+	for(; i < (int)request.filename.size(); i++)
+		opener[OPENER_FILENAME + i] = request.filename[i];
+	opener[OPENER_FILENAME + i] = '\0';
+	
+	char* data = NULL;
+	int dataSize = 0;
+	generalHandler(recvPort, opener, &data, &dataSize);	
+	
+	if(request.port == -4)
+		return;
+	
+	if(dataSize >= 0) //empty file if 0
+	{
+		// We are good to create the file.
+		std::string print(data, dataSize);
+		std::ofstream outfile(downloadManager->user->getDirectory() + "/" + request.filename);
+		for(int i = 0; i < dataSize; i++)
+			outfile << data[i];
+		outfile.close();
+	}
+	else
+		downloadManager->user->bufferMessage(request.filename + " not found on " + request.ip);
+	
+	delete[] data;
 }
 
 void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int* dataSize)
@@ -188,6 +221,13 @@ void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int
 		request.port = -4;
 		return; // The server will clean itself up after timeout. 
 	}
+	
+	if(recBytes == 2 && fileSize[0] == '-' && fileSize[1] == '1')
+	{
+		*dataSize = -1;
+		return;
+	}
+	
 	std::string fSize(fileSize, recBytes);
 	int fileS = std::stoi(fSize);
 	

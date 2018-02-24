@@ -94,7 +94,7 @@ bool User::handleCommand(std::string input)
 	else if(input.size() == 2 && input[0] == 'q' && input[1] == 'q')
 		return quit();
 	
-	else if(!flag_messageMode)
+	else
 		std::cout << "No command recognized." << std::endl << std::endl;
 	
 	return true;
@@ -125,7 +125,7 @@ bool User::messageMode()
 	else
 	{
 		flag_messageMode = true;
-		std::cout << "Message mode on (entering an invalid command will not display an error, but still won't work.)" << std::endl;
+		std::cout << "Message mode on" << std::endl;
 		viewMessages();
 	}
 	

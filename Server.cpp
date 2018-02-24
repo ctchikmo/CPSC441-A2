@@ -227,7 +227,6 @@ void Server::reciveData()
 		
 		std::string fileSenderData(buffer, recBytes);
 		int clientRecvPort = std::stoi(&fileSenderData[OPENER_RECVPORT]);
-		std::cout << cliPort  << "::" << clientRecvPort << std::endl;
 		clientInfo.sin_port = htons(clientRecvPort);
 		
 		int clientSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
