@@ -9,13 +9,14 @@
 #include <sys/socket.h>
 #include <time.h>
 
-#define MAX_TRIES 3
+#define MAX_TRIES 	3
+#define NO_SOC		-1
 
 template<typename T>// Thanks @ https://isocpp.org/wiki/faq/pointers-to-members
 class Timer
 {
 	public:
-		Timer(int timeWait, bool (T::*timeoutF)(), int socketToShutdown = -1); // Only FileDownloader needs the shutdown. 
+		Timer(int timeWait, T* obj, bool (T::*timeoutF)(), int socketToShutdown);
 		~Timer();
 		
 		void stop(); // Call this if we got our data. 
@@ -23,9 +24,11 @@ class Timer
 		
 	private:
 		int timeWait; // This value is in seconds. 
-		int numTries = 0;
-		int socketToShutdown = -1;
+		T* object;
 		bool (T::*timeFunc)();
+		int socketToShutdown = -1;
+		
+		int numTries = 0;
 		bool running = true;
 		pthread_t thread;
 		pthread_mutex_t timerMutex;
@@ -38,8 +41,9 @@ class Timer
 // TEMPLATES MUST BE DEFINED IN THE HEADER
 
 template <typename T>
-Timer<T>::Timer(int timeWait, bool (T::*timeoutF)(), int socketToShutdown):
+Timer<T>::Timer(int timeWait, T* obj, bool (T::*timeoutF)(), int socketToShutdown):
 timeWait(timeWait),
+object(obj),
 timeFunc(timeoutF),
 socketToShutdown(socketToShutdown)
 {
@@ -64,7 +68,7 @@ Timer<T>::~Timer()
 template <typename T>
 void Timer<T>::countDown()
 {
-	while(!attemptsFinished && running)
+	while(!attemptsFinished() && running)
 	{
 		pthread_mutex_lock(&timerMutex);
 		{
@@ -85,8 +89,11 @@ void Timer<T>::countDown()
 				
 				if (rv == ETIMEDOUT) 
 				{
-					timeFunc();
-					numTries++;
+					if((object->*timeFunc)())
+						numTries++;
+					else
+						numTries = MAX_TRIES; // Force a time out due to error. 
+					
 					break;
 				}
 			}
@@ -94,7 +101,7 @@ void Timer<T>::countDown()
 		pthread_mutex_unlock(&timerMutex);
 	}
 	
-	if(attemptsFinished && socketToShutdown != -1)
+	if(attemptsFinished() && socketToShutdown != NO_SOC)
 		shutdown(socketToShutdown, SHUT_RDWR);
 }
 
@@ -103,8 +110,11 @@ void Timer<T>::stop()
 {
 	pthread_mutex_lock(&timerMutex);
 	{
-		running = false;
-		pthread_cond_signal(&timerCond);
+		if(running)
+		{
+			running = false;
+			pthread_cond_signal(&timerCond);	
+		}
 	}
 	pthread_mutex_unlock(&timerMutex);
 }
@@ -112,7 +122,15 @@ void Timer<T>::stop()
 template <typename T>
 bool Timer<T>::attemptsFinished()
 {
-	return numTries == MAX_TRIES;
+	bool rv;
+	
+	pthread_mutex_lock(&timerMutex);
+	{
+		rv = numTries == MAX_TRIES;
+	}
+	pthread_mutex_unlock(&timerMutex);
+	
+	return rv;
 }
 
 template <typename T>
@@ -126,3 +144,16 @@ void* Timer<T>::startupTimerThread(void* timer)
 }
 
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+

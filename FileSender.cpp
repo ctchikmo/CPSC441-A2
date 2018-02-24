@@ -140,8 +140,12 @@ void FileSender::handleFile()
 	if(size == -1)
 	{
 		server->user->bufferMessage("Server unable to find file: \"" + filename + "\", asked for by client on port " + std::to_string(clientPort));
-		std::string sizeString = "-1";
-		if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the -1 filesize. 
+		char sendNoFind[FILE_SIZE_BUFF];
+		sendNoFind[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
+		sendNoFind[FILE_SIZE_START] = '-';
+		sendNoFind[FILE_SIZE_START + 1] = '1';
+
+		if(send(clientSocket, sendNoFind, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1) // Send the -1 filesize. 
 			return;
 	}
 	else
@@ -168,6 +172,28 @@ bool FileSender::generalHandler(int size, char* toSend)
 	if(send(clientSocket, sizeString.c_str(), sizeString.size(), MSG_NOSIGNAL) == -1) // Send the filesize. 
 		return false; // Client will time out.
 		
+	// Make sure the client got it (they send an ack)
+	Timer<FileSender> timeFileSizeAck(3, this, &FileSender::fileSizeTimeout, NO_SOC);
+	pthread_mutex_lock(&requestMutex);
+	{
+		while(true)
+		{
+			while(dataQueue.size() == 0)
+				pthread_cond_wait(&requestCond, &requestMutex);
+		
+			if(timeFileSizeAck.attemptsFinished())
+				return false;
+		
+			std::string ack = dataQueue.front();
+			dataQueue.pop();
+			
+			if(ack.size() == FILE_SIZE_BUFF && ack[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)
+				break;
+		}
+	}
+	pthread_mutex_unlock(&requestMutex);
+	timeFileSizeAck.stop();
+		
 	std::queue<Octoblock*> blocks;
 	Octoblock::getOctoblocks(&blocks, size, toSend, this);
 	
@@ -184,16 +210,23 @@ bool FileSender::generalHandler(int size, char* toSend)
 	{
 		std::string handleThis;
 	
-		// Figure out how to transmission timer. If we go over this after a few attempts we return to the Sever loop.
+		Timer<Octoblock> timeStandard(3, current, &Octoblock::requestAcks, NO_SOC); // When we are not done and cant move on that mains we are only ever waiting on acks!
 		pthread_mutex_lock(&requestMutex);
 		{
 			while(dataQueue.size() == 0)
 				pthread_cond_wait(&requestCond, &requestMutex);
 			
+			if(timeFileSizeAck.attemptsFinished())
+				return false;
+			
 			handleThis = dataQueue.front();
 			dataQueue.pop();
 		}
 		pthread_mutex_unlock(&requestMutex);
+		timeStandard.stop(); // If we get anything than we pop out of here and handle it. 
+		
+		if(handleThis.size() == FILE_SIZE_BUFF && handleThis[FILE_SIZE_KEY_B] == FILE_SIZE_KEY) // Stray fileSize ack, ignore it. 
+			continue;
 		
 		// At this point handleThis is safe to use. 
 		int rvMessage = current->recvServer(handleThis.c_str(), handleThis.size());
@@ -222,6 +255,16 @@ bool FileSender::generalHandler(int size, char* toSend)
 			}
 		}
 	}
+	
+	return true;
+}
+	
+bool FileSender::fileSizeTimeout()
+{
+	char fileSizeAckReq[FILE_SIZE_BUFF];
+	fileSizeAckReq[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
+	if(send(clientSocket, fileSizeAckReq, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1)
+		return false;
 	
 	return true;
 }

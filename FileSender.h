@@ -45,6 +45,8 @@ class FileSender
 		void handleFile();
 		bool generalHandler(int size, char* toSend);
 		std::queue<std::string> dataQueue;
+		
+		bool fileSizeTimeout();
 	
 		static void* startFileSenderThread(void* fileSender); // Called from this classes ctor when creating its own pthread.
 };

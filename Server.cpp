@@ -219,7 +219,8 @@ void Server::reciveData()
 		}
 		pthread_mutex_unlock(&senderMutex);
 		
-		if(found)
+		// Note, it is a fileSize ack, and the fileSender has not timedout than we found it above and handed it over. If it has timed out than we don't start a new req
+		if(found || (recBytes == FILE_SIZE_BUFF && buffer[FILE_SIZE_KEY_B] == FILE_SIZE_KEY))
 		{
 			delete[] buffer;
 			continue;

@@ -45,11 +45,14 @@ class FileDownloader
 		Request request; // A port value of >= 0 means good, -1 means startup, -2 means finished request.
 		int servSocket = -1;
 		struct sockaddr_in address;
+		char* openerForTimeout;
 		
 		void awaitRequest();
 		void fetchFileList(int recvPort);
 		void fileDownload(int recvPort);
-		void generalHandler(int recvPort, char* opener, char** data, int* dataSize);
+		void generalHandler(char* opener, char** data, int* dataSize);
+		
+		bool fileSizeTimeout();
 		
 		static void* startFileDownloaderThread(void* fileDownloader); // Called from this classes ctor when creating its own pthread.
 };

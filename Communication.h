@@ -14,7 +14,11 @@
 #define OPENER_FILENAME 20
 #define FILE_LIST 		0x0
 #define FILE_DOWNLOAD	0x1
-#define FILE_SIZE_BUFF	8
+
+#define FILE_SIZE_BUFF		11
+#define FILE_SIZE_KEY   	'F'
+#define FILE_SIZE_KEY_B  	1
+#define FILE_SIZE_START		2
 
 #define OCTOBBLOCK_MAX		8888
 #define OCTOLEG_MAX_SIZE	1111

@@ -3,6 +3,7 @@
 #include "Request.h"
 #include "Communication.h"
 #include "User.h"
+#include "Timer.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -152,7 +153,7 @@ void FileDownloader::fetchFileList(int recvPort)
 	
 	char* data = NULL;
 	int dataSize = 0;
-	generalHandler(recvPort, opener, &data, &dataSize);	
+	generalHandler(opener, &data, &dataSize);	
 	
 	if(request.port == -4)
 		return;
@@ -185,7 +186,7 @@ void FileDownloader::fileDownload(int recvPort)
 	
 	char* data = NULL;
 	int dataSize = 0;
-	generalHandler(recvPort, opener, &data, &dataSize);	
+	generalHandler(opener, &data, &dataSize);	
 	
 	if(request.port == -4)
 		return;
@@ -205,8 +206,10 @@ void FileDownloader::fileDownload(int recvPort)
 	delete[] data;
 }
 
-void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int* dataSize)
+void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 {
+	openerForTimeout = opener;
+	
 	if(sendto(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
 	{
 		request.port = -4;
@@ -215,20 +218,44 @@ void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int
 	
 	// Get the file size so we can run the Octoblock algorithm here, then start waiting for recvs. 
 	char fileSize[FILE_SIZE_BUFF];
-	int recBytes = recv(servSocket, fileSize, sizeof(fileSize), 0);
-	if(recBytes < 0)
+	int recBytes;
+	while(flag_running)
+	{
+		Timer<FileDownloader> fileSizeTimer(3, this, &FileDownloader::fileSizeTimeout, servSocket);
+		recBytes = recv(servSocket, fileSize, sizeof(fileSize), 0);
+		
+		// If anything got out of that recv we stop the timer. 
+		fileSizeTimer.stop();
+		if(fileSizeTimer.attemptsFinished())
+		{
+			request.port = -4;
+			return; // The server will clean itself up after timeout. 
+		}
+		else if(recBytes < 0)
+		{
+			request.port = -4;
+			return; // The server will clean itself up after timeout. 
+		}
+		else if(recBytes > 0)// good recv (note that shutdown causes recv to return 0 bytes. None of my sendTos ever send 0.)
+			break;
+	}
+	
+	// Successful filesize, we ack to server.
+	char fileSizeAck[FILE_SIZE_BUFF];
+	fileSizeAck[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
+	if(sendto(servSocket, fileSizeAck, FILE_SIZE_BUFF, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
 	{
 		request.port = -4;
 		return; // The server will clean itself up after timeout. 
 	}
 	
-	if(recBytes == 2 && fileSize[0] == '-' && fileSize[1] == '1')
+	if(recBytes == FILE_SIZE_BUFF && fileSize[FILE_SIZE_START] == '-' && fileSize[FILE_SIZE_START + 1] == '1')
 	{
 		*dataSize = -1;
 		return;
 	}
 	
-	std::string fSize(fileSize, recBytes);
+	std::string fSize(fileSize + FILE_SIZE_START, recBytes - FILE_SIZE_START);
 	int fileS = std::stoi(fSize);
 	
 	std::vector<Octoblock*> blocks;
@@ -251,20 +278,46 @@ void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int
 		}
 		else
 		{
-			char buffer[OCTOLEG_MAX_SIZE + HEADER_SIZE];
-			int bytes = recv(servSocket, buffer, sizeof(buffer), 0);
-			if(recBytes < 0)
+			char buffer[OCTOLEG_MAX_SIZE + HEADER_SIZE + FILE_SIZE_BUFF]; // This is the size that works for everything, it doesnt matter that it might be bigger than any recv. 
+			int bytes;
+			
+			while(flag_running) // While for the timer.
 			{
-				request.port = -4;
-				return; // The server will clean itself up after timeout. 
-			}
-			else
-			{
-				if(!(blocks[current]->recvClient(buffer, bytes)))
+				Timer<Octoblock> timeStandard(3, blocks[current], &Octoblock::requestRetrans, servSocket);
+				bytes = recv(servSocket, buffer, sizeof(buffer), 0);
+				
+				// If anything gets out of recv we stop the timer
+				timeStandard.stop();
+				
+				if(timeStandard.attemptsFinished())
 				{
 					request.port = -4;
 					return; // The server will clean itself up after timeout. 
-				}	
+				}
+				else if(recBytes < 0)
+				{
+					request.port = -4;
+					return; // The server will clean itself up after timeout. 
+				}
+				else if(bytes > 0)
+				{
+					if(bytes == FILE_SIZE_BUFF && buffer[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)// Sever waiting on fileSize ack still
+					{
+						if(sendto(servSocket, fileSizeAck, FILE_SIZE_BUFF, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+						{
+							request.port = -4;
+							return; // The server will clean itself up after timeout. 
+						}
+					}
+					else if(!(blocks[current]->recvClient(buffer, bytes)))
+					{
+						request.port = -4;
+						return; // The server will clean itself up after timeout. 
+					}
+
+					break;					
+				}
+				// If bytes are 0 that means the timer timed out and stopped the recv so it could send. In this case we want to keep looping. 
 			}
 		}
 	}
@@ -280,6 +333,17 @@ void FileDownloader::generalHandler(int recvPort, char* opener, char** data, int
 	}
 }
 
+bool FileDownloader::fileSizeTimeout()
+{
+	if(sendto(servSocket, openerForTimeout, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+	{
+		request.port = -4;
+		return false;
+	}
+	
+	return true;
+}
+
 void* FileDownloader::startFileDownloaderThread(void* fileDownloader)
 {
 	FileDownloader* fd = (FileDownloader*)fileDownloader;
@@ -292,6 +356,7 @@ void* FileDownloader::startFileDownloaderThread(void* fileDownloader)
 void FileDownloader::quit()
 {
 	flag_running = false;
+	shutdown(servSocket, SHUT_RDWR);
 }
 
 
