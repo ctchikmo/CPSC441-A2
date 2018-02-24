@@ -188,15 +188,15 @@ bool FileSender::generalHandler(int size, char* toSend)
 		return false; // Client will time out.
 		
 	// Make sure the client got it (they send an ack)
-	Timer<FileSender> timeFileSizeAck(3, this, &FileSender::fileSizeTimeout, NO_SOC);
+	Timer<FileSender>* timeFileSizeAck = new Timer<FileSender>(WAIT_TIME, this, &FileSender::fileSizeTimeout, NO_SOC); // Timer will delete itself when done.
 	pthread_mutex_lock(&requestMutex);
 	{
 		while(flag_running)
 		{
-			while(dataQueue.size() == 0 && flag_running && !timeFileSizeAck.attemptsFinished())
+			while(dataQueue.size() == 0 && flag_running && !timeFileSizeAck->attemptsFinished())
 				pthread_cond_wait(&requestCond, &requestMutex);
 		
-			if(timeFileSizeAck.attemptsFinished())
+			if(timeFileSizeAck->attemptsFinished())
 			{
 				// In this case the timer is already done
 				pthread_mutex_unlock(&requestMutex); 
@@ -214,7 +214,7 @@ bool FileSender::generalHandler(int size, char* toSend)
 		}
 	}
 	pthread_mutex_unlock(&requestMutex); 
-	timeFileSizeAck.stop();
+	timeFileSizeAck->stop();
 	
 	if(!flag_running)
 		return false;
@@ -235,13 +235,13 @@ bool FileSender::generalHandler(int size, char* toSend)
 	{
 		std::string handleThis;
 	
-		Timer<Octoblock> timeStandard(3, current, &Octoblock::requestAcks, NO_SOC); // When we are not done and cant move on that mains we are only ever waiting on acks!
+		Timer<Octoblock>* timeStandard = new Timer<Octoblock>(WAIT_TIME, current, &Octoblock::requestAcks, NO_SOC); // When we are not done and cant move on that mains we are only ever waiting on acks!
 		pthread_mutex_lock(&requestMutex);
 		{
-			while(dataQueue.size() == 0 && flag_running && !timeStandard.attemptsFinished())
+			while(dataQueue.size() == 0 && flag_running && !timeStandard->attemptsFinished())
 				pthread_cond_wait(&requestCond, &requestMutex);
 			
-			if(timeStandard.attemptsFinished())
+			if(timeStandard->attemptsFinished())
 			{
 				// In this case the timer is already done
 				pthread_mutex_unlock(&requestMutex);
@@ -255,7 +255,7 @@ bool FileSender::generalHandler(int size, char* toSend)
 			}
 		}
 		pthread_mutex_unlock(&requestMutex);
-		timeStandard.stop(); // If we get anything than we pop out of here and handle it. 
+		timeStandard->stop(); // If we get anything than we pop out of here and handle it. 
 		
 		if(!flag_running)
 			return false;

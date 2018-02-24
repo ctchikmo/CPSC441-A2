@@ -114,7 +114,7 @@ bool Octoblock::serverSendData()
 }
 
 bool Octoblock::requestAcks()
-{
+{	
 	pthread_mutex_lock(sender->getMutex());
 	{
 		pthread_cond_signal(sender->getCond());

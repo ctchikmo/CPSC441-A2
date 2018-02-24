@@ -221,12 +221,12 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 	int recBytes;
 	while(flag_running)
 	{
-		Timer<FileDownloader> fileSizeTimer(3, this, &FileDownloader::fileSizeTimeout, servSocket);
+		Timer<FileDownloader>* fileSizeTimer = new Timer<FileDownloader>(WAIT_TIME, this, &FileDownloader::fileSizeTimeout, servSocket);
 		recBytes = recv(servSocket, fileSize, sizeof(fileSize), 0);
 		
 		// If anything got out of that recv we stop the timer. 
-		fileSizeTimer.stop();
-		if(fileSizeTimer.attemptsFinished())
+		fileSizeTimer->stop();
+		if(fileSizeTimer->attemptsFinished())
 		{
 			request.port = -4;
 			return; // The server will clean itself up after timeout. 
@@ -283,13 +283,13 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 			
 			while(flag_running) // While for the timer.
 			{
-				Timer<Octoblock> timeStandard(3, blocks[current], &Octoblock::requestRetrans, servSocket);
+				Timer<Octoblock>* timeStandard = new Timer<Octoblock>(WAIT_TIME, blocks[current], &Octoblock::requestRetrans, servSocket);
 				bytes = recv(servSocket, buffer, sizeof(buffer), 0);
 				
 				// If anything gets out of recv we stop the timer
-				timeStandard.stop();
+				timeStandard->stop();
 				
-				if(timeStandard.attemptsFinished())
+				if(timeStandard->attemptsFinished())
 				{
 					request.port = -4;
 					return; // The server will clean itself up after timeout. 

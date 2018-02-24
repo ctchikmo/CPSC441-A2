@@ -10,6 +10,7 @@
 #include <time.h>
 
 #define MAX_TRIES 	3
+#define WAIT_TIME	3
 #define NO_SOC		-1
 
 template<typename T>// Thanks @ https://isocpp.org/wiki/faq/pointers-to-members
@@ -87,22 +88,28 @@ void Timer<T>::countDown()
 			{
 				int rv = pthread_cond_timedwait(&timerCond, &timerMutex, &ts);
 				
-				if (rv == ETIMEDOUT) 
+				// Need another running check here as lets say the stack frame holding object completes its. When this happens timer.stop is called, but what if this the stack frame is destroyed before this thread
+				// gets the signal, than the call to object->* will be invalid as that memory is gone. 
+				if(rv == ETIMEDOUT && running)
 				{
 					if((object->*timeFunc)())
 						numTries++;
 					else
 						numTries = MAX_TRIES; // Force a time out due to error. 
 					
-					break;
+					break; // If it was a timeout, and not a spurious wakeup, we break so we can remake the time. 
 				}
 			}
 		}
 		pthread_mutex_unlock(&timerMutex);
 	}
 	
-	if(attemptsFinished() && socketToShutdown != NO_SOC)
+	// This is a timeout finish, it will never occur due to stop() being called. 
+	if(running && attemptsFinished() && socketToShutdown != NO_SOC)
+	{
+		running = false;
 		shutdown(socketToShutdown, SHUT_RDWR);
+	}
 }
 
 template <typename T>
@@ -138,8 +145,9 @@ void* Timer<T>::startupTimerThread(void* timer)
 {
 	Timer* t = (Timer*)timer;
 	t->countDown();
+	t->stop();
 	
-	// Timers are only made on the stack, so no need to delete. (we get abort error if we do)
+	delete t;
 	return NULL;
 }
 
