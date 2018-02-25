@@ -1,6 +1,9 @@
 #include "Communication.h"
 #include "FileDownloader.h"
 #include "FileSender.h"
+#include "DownloadManager.h"
+#include "Server.h"
+#include "User.h"
 
 #include <sys/socket.h>
 
@@ -54,8 +57,16 @@ char Octoleg::getLegNum()
 
 bool Octoleg::serverSendData()
 {
-	if(send(sender->getClientSocket(), serverData, size + HEADER_SIZE, MSG_NOSIGNAL) == -1)
-		return false; // The client will handle clean up if this happens.
+	// Random loss potential 
+	if(!sender->server->user->losePacket())
+	{
+		if(send(sender->getClientSocket(), serverData, size + HEADER_SIZE, MSG_NOSIGNAL) == -1)
+		{
+			return false; // The client will handle clean up if this happens.
+		}
+	}
+	else
+		sender->server->user->bufferMessage("Random loss: leg server send data");
 	
 	return true;
 }
@@ -67,8 +78,16 @@ bool Octoleg::serverAskForAck()
 	askAck[KEY_BYTE] = ASK_ACK_KEY;
 	askAck[LEG_BYTE] = legNum;
 	
-	if(send(sender->getClientSocket(), askAck, sizeof(askAck), MSG_NOSIGNAL) == -1)
-		return false; // The client will handle clean up if this happens.
+	// Random loss potential 
+	if(!sender->server->user->losePacket())
+	{
+		if(send(sender->getClientSocket(), askAck, sizeof(askAck), MSG_NOSIGNAL) == -1)
+		{
+			return false; // The client will handle clean up if this happens.
+		}
+	}
+	else
+		sender->server->user->bufferMessage("Random loss: leg server ask for ack");
 	
 	return true;
 }
@@ -77,10 +96,14 @@ bool Octoleg::clientRecvFileData(char* d, int s)
 {
 	// If the data is not the excpected size we return.
 	if(s != size)
+	{
 		return false;
+	}
 	
 	for(int i = 0; i < s; i++)
+	{
 		data[i] = d[i];
+	}
 	
 	return true;
 }
@@ -92,8 +115,16 @@ bool Octoleg::clientSendAck()
 	sendAck[KEY_BYTE] = ACK_KEY;
 	sendAck[LEG_BYTE] = legNum;
 	
-	if(sendto(downloader->getServSocket(), sendAck, sizeof(sendAck), MSG_NOSIGNAL, (struct sockaddr*)downloader->getServAddress(), sizeof(*downloader->getServAddress())) == -1)
-		return false; // The client will handle clean up if this happens.
+	// Random loss potential 
+	if(!downloader->downloadManager->user->losePacket())
+	{
+		if(sendto(downloader->getServSocket(), sendAck, sizeof(sendAck), MSG_NOSIGNAL, (struct sockaddr*)downloader->getServAddress(), sizeof(*downloader->getServAddress())) == -1)
+		{
+			return false; // The client will handle clean up if this happens.
+		}
+	}
+	else
+		downloader->downloadManager->user->bufferMessage("Random loss: leg client send ack");
 	
 	return true;
 }
@@ -105,8 +136,16 @@ bool Octoleg::clientAskForRetransmit()
 	askRetrans[KEY_BYTE] = ASK_TRANS_KEY;
 	askRetrans[LEG_BYTE] = legNum;
 	
-	if(sendto(downloader->getServSocket(), askRetrans, sizeof(askRetrans), MSG_NOSIGNAL, (struct sockaddr*)downloader->getServAddress(), sizeof(*downloader->getServAddress())) == -1)
-		return false; // The server will handle clean up if this happens.
+	// Random loss potential 
+	if(!downloader->downloadManager->user->losePacket())
+	{
+		if(sendto(downloader->getServSocket(), askRetrans, sizeof(askRetrans), MSG_NOSIGNAL, (struct sockaddr*)downloader->getServAddress(), sizeof(*downloader->getServAddress())) == -1)
+		{
+			return false; // The server will handle clean up if this happens.
+		}
+	}
+	else
+		downloader->downloadManager->user->bufferMessage("Random loss: leg client ask for retransmit");
 	
 	return true;
 }

@@ -68,6 +68,18 @@ std::string& User::getDirectory()
 	return directory;
 }
 
+bool User::losePacket()
+{
+	if(randomLossChance > 0)
+	{
+		int rando = rand() % 100 + 1; // Gets a number between 1 and 100
+		if(randomLossChance >= rando)
+			return true;
+	}
+	
+	return false; // Default, random loss off. 
+}
+
 bool User::handleCommand(std::string input)
 {
 	if(input.size() == 2 && input[0] == 'm' && input[1] == 'm')
@@ -81,6 +93,9 @@ bool User::handleCommand(std::string input)
 	
 	else if(input.size() == 2 && input[0] == 's' && input[1] == 'd')
 		return serverDetails();
+	
+	else if(input[0] == 'p' && input[1] == 'l')
+		return randomPacketLoss(input);
 	
 	else if(input[0] == 'f' && input[1] == 'l')
 		return fileList(input);
@@ -107,6 +122,7 @@ bool User::help()
 	<< "Type in 'vm' to view currently buffered messages." << std::endl
 	<< "Type in 'dd' to view the Download Manager details (thread count and ongoing downloads)." << std::endl
 	<< "Type in 'sd' to view the Server details (thread count, port, files hosted)." << std::endl
+	<< "Type in 'pl <% loss chance(0 - 100)>' to turn on random packet loss (if 0 is entered no packets are lost, starts at 0)." << std::endl
 	<< "Type in 'fl <host ip> <host port>' to view the list of files at the address." << std::endl
 	<< "Type in 'df <host ip> <host port> <filename>' to download 'filename' from the address." << std::endl
 	<< "Type in 'qq' to quit (If in message mode typing qq quits message mode.)" << std::endl
@@ -166,6 +182,41 @@ bool User::serverDetails()
 	server->details();
 	std::cout << std::endl;
 	
+	return true;
+}
+
+bool User::randomPacketLoss(std::string input)
+{
+	int chance;
+	std::string str_chance;
+	
+	if((int)input.size() >= 4)
+		str_chance.assign(input.substr(3, std::string::npos));
+	else
+	{
+		std::cout << "Missing chance argument" << std::endl << std::endl;
+		return true;
+	}
+	
+	try
+	{
+		chance = std::stoi(str_chance);
+		
+		if(chance < 0 || chance > 100)
+		{
+			std::cout << "Please enter a chance between 0 and 100 (inclusive on both)" << std::endl;
+			return true;
+		}
+		
+		randomLossChance = chance;
+	}
+	catch(...)
+	{
+		std::cout << "Error converting chance to an interger." << std::endl << std::endl;
+		return true;
+	}
+	
+	std::cout << "Random loss with " << randomLossChance << "% loss chance." << std::endl << std::endl;
 	return true;
 }
 

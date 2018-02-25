@@ -33,12 +33,13 @@ class FileDownloader
 		
 		void quit(); // Called from the user thread
 		
+		DownloadManager* downloadManager;
+		
 	private:
 		pthread_t thread;
 		pthread_mutex_t requestMutex;
 		pthread_cond_t requestCond;
 	
-		DownloadManager* downloadManager;
 		int threadIndex = -1;
 		
 		bool flag_running = true;

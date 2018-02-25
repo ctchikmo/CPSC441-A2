@@ -53,11 +53,14 @@ bool Octoblock::recvClient(char* data, int size)
 	if(size < 3)
 		return false;
 	
+	char block = data[BLOCK_BYTE];
 	char type = data[KEY_BYTE];
 	int legIndex = legNumToIndex(data[LEG_BYTE]);
 	
 	bool rv = false;
-	if(type == ASK_ACK_KEY)
+	if(block != blockNum)
+		rv = legs[legIndex]->clientAskForRetransmit();
+	else if(type == ASK_ACK_KEY)
 	{
 		if(hasLegAck(data[LEG_BYTE]))
 			rv = legs[legIndex]->clientSendAck();
@@ -95,7 +98,9 @@ int Octoblock::recvServer(const char* data, int size)
 	else if(type == ASK_TRANS_KEY) // This occurs either because we actually need a retransmit for that leg, or because the final ack (letting server move blocks) was lost & client is now on different block. 
 	{
 		if(block != blockNum) // Client finished, sent last ack and moved to next block. Last ack was lost, so server relizes here. If its last block this wont make it here, but client finished, so server has ungraceful end
+		{
 			return RECV_SERVER_DIF_BLOCK;
+		}
 			
 		rv = legs[legIndex]->serverSendData();
 	}
@@ -106,9 +111,15 @@ int Octoblock::recvServer(const char* data, int size)
 bool Octoblock::serverSendData()
 {
 	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
+	{
 		if(!hasLegAck(legs[i]->getLegNum()))
+		{
 			if(!legs[i]->serverSendData())
+			{
 				return false;
+			}
+		}
+	}
 	
 	return true;
 }

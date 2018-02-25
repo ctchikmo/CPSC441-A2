@@ -5,12 +5,13 @@
 #include "FileDownloader.h"
 #include "Communication.h"
 
+#include <unistd.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <time.h>
 
 #define MAX_TRIES 	3
-#define WAIT_TIME	3
+#define WAIT_TIME	2
 #define NO_SOC		-1
 
 template<typename T>// Thanks @ https://isocpp.org/wiki/faq/pointers-to-members
@@ -108,7 +109,7 @@ void Timer<T>::countDown()
 	if(running && attemptsFinished() && socketToShutdown != NO_SOC)
 	{
 		running = false;
-		shutdown(socketToShutdown, SHUT_RDWR);
+		close(socketToShutdown);
 	}
 }
 
@@ -145,7 +146,6 @@ void* Timer<T>::startupTimerThread(void* timer)
 {
 	Timer* t = (Timer*)timer;
 	t->countDown();
-	t->stop();
 	
 	delete t;
 	return NULL;

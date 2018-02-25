@@ -129,7 +129,7 @@ void FileSender::handleFileList()
 	if(generalHandler(size, toSend))
 		server->user->bufferMessage("Server done sending file list to client on port " + std::to_string(clientPort));
 	else
-		server->user->bufferMessage("Server had an error sending file list to client on port " + std::to_string(clientPort));
+		server->user->bufferMessage("Server had an error (or timeout) sending file list to client on port " + std::to_string(clientPort));
 }
 
 void FileSender::handleFile()
@@ -170,7 +170,7 @@ void FileSender::handleFile()
 			if(generalHandler(size, toSend))
 				server->user->bufferMessage("Server done sending " + filename + " to client on port " + std::to_string(clientPort));
 			else
-				server->user->bufferMessage("Server had an error sending " + filename + " to client on port " + std::to_string(clientPort));
+				server->user->bufferMessage("Server had an error (or timeout) sending " + filename + " to client on port " + std::to_string(clientPort));
 		}
 	}
 }
@@ -181,11 +181,21 @@ bool FileSender::generalHandler(int size, char* toSend)
 	std::string sizeString = std::to_string(size);
 	char sendSize[FILE_SIZE_BUFF];
 	sendSize[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
-	for(int i = 0; i < (int)sizeString.size(); i++)
-		sendSize[FILE_SIZE_START + i] = sizeString[i];
+	int sendSizeIndex = 0;
+	for(; sendSizeIndex < (int)sizeString.size(); sendSizeIndex++)
+		sendSize[FILE_SIZE_START + sendSizeIndex] = sizeString[sendSizeIndex];
+	sendSize[FILE_SIZE_START + sendSizeIndex] = FILE_SIZE_END;
 
-	if(send(clientSocket, sendSize, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1) // Send the filesize. 
-		return false; // Client will time out.
+	// If random loss potential
+	if(!server->user->losePacket())
+	{
+		if(send(clientSocket, sendSize, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1) // Send the filesize. 
+		{
+			return false; // Client will time out.
+		}
+	}
+	else
+		server->user->bufferMessage("Random loss: sending size");
 		
 	// Make sure the client got it (they send an ack)
 	Timer<FileSender>* timeFileSizeAck = new Timer<FileSender>(WAIT_TIME, this, &FileSender::fileSizeTimeout, NO_SOC); // Timer will delete itself when done.
@@ -208,7 +218,7 @@ bool FileSender::generalHandler(int size, char* toSend)
 				std::string ack = dataQueue.front();
 				dataQueue.pop();
 				
-				if(ack.size() == FILE_SIZE_BUFF && ack[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)
+				if(ack.size() == FILE_SIZE_ACK_BUFF && ack[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)
 					break;
 			}
 		}
@@ -260,8 +270,15 @@ bool FileSender::generalHandler(int size, char* toSend)
 		if(!flag_running)
 			return false;
 		
-		if(handleThis.size() == FILE_SIZE_BUFF && handleThis[FILE_SIZE_KEY_B] == FILE_SIZE_KEY) // Stray fileSize ack, ignore it. 
+		if(handleThis.size() == FILE_SIZE_ACK_BUFF && handleThis[FILE_SIZE_KEY_B] == FILE_SIZE_KEY) // Stray fileSize ack, ignore it. 
 			continue;
+		
+		// Random loss potential
+		if(server->user->losePacket())
+		{
+			server->user->bufferMessage("Random loss: sender loop");
+			continue;
+		}
 		
 		// At this point handleThis is safe to use. 
 		int rvMessage = current->recvServer(handleThis.c_str(), handleThis.size());
@@ -272,11 +289,10 @@ bool FileSender::generalHandler(int size, char* toSend)
 			current = blocks.front();
 			blocks.pop();
 			
-			if(!(current->serverSendData()))
-				return false;
+			// Do not transmit all the data here, this only occured because of a retrans call, and if there are more sending everything will result in more than 1 block out at a time. 
+			// It will also destroy the client. In this case the client will need to retrans for the 1 leg that caused this swich again. But, thats okay as this case is very rare.
 		}
-		
-		if(current->complete())
+		else if(current->complete())
 		{
 			if(blocks.size() == 0)
 				break;
@@ -302,10 +318,19 @@ bool FileSender::fileSizeTimeout()
 	}
 	pthread_mutex_unlock(&requestMutex);
 	
-	char fileSizeAckReq[FILE_SIZE_BUFF];
+	char fileSizeAckReq[FILE_SIZE_ACK_BUFF];
 	fileSizeAckReq[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
-	if(send(clientSocket, fileSizeAckReq, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1)
-		return false;
+	
+	// Random loss potential 
+	if(!server->user->losePacket())
+	{
+		if(send(clientSocket, fileSizeAckReq, FILE_SIZE_ACK_BUFF, MSG_NOSIGNAL) == -1)
+		{
+			return false;
+		}
+	}
+	else
+		server->user->bufferMessage("Random loss: fileSize ack timeout");
 	
 	return true;
 }

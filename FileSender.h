@@ -27,12 +27,13 @@ class FileSender
 		
 		void quit(); // Called from the user thread
 		
+		Server* server;
+		
 	private:
 		pthread_t thread;
 		pthread_mutex_t requestMutex;
 		pthread_cond_t requestCond;
 	
-		Server* server;
 		int threadIndex = -1;
 		
 		bool flag_running = true;

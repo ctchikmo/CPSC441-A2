@@ -84,7 +84,7 @@ void FileDownloader::awaitRequest()
 			}
 			else if(request.port == -4)
 			{
-				downloadManager->reclaim(this, threadIndex, "File download for " + request.filename + "  encounted an error during download");
+				downloadManager->reclaim(this, threadIndex, "File download for " + request.filename + "  encounted an error (or timeout) during download");
 				request.port = -2; // We are done with this request. 
 			}
 			else
@@ -210,11 +210,17 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 {
 	openerForTimeout = opener;
 	
-	if(sendto(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+	// Random loss potential
+	if(!downloadManager->user->losePacket())
 	{
-		request.port = -4;
-		return; // The server will clean itself up after timeout. 
+		if(sendto(servSocket, opener, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+		{
+			request.port = -4;
+			return; // The server will clean itself up after timeout. 
+		}
 	}
+	else
+		downloadManager->user->bufferMessage("Random loss: sending opener.");
 	
 	// Get the file size so we can run the Octoblock algorithm here, then start waiting for recvs. 
 	char fileSize[FILE_SIZE_BUFF];
@@ -228,6 +234,7 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 		fileSizeTimer->stop();
 		if(fileSizeTimer->attemptsFinished())
 		{
+			std::cout << "@@" << std::endl;
 			request.port = -4;
 			return; // The server will clean itself up after timeout. 
 		}
@@ -236,18 +243,25 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 			request.port = -4;
 			return; // The server will clean itself up after timeout. 
 		}
-		else if(recBytes > 0)// good recv (note that shutdown causes recv to return 0 bytes. None of my sendTos ever send 0.)
+		else if(recBytes == FILE_SIZE_BUFF)
 			break;
 	}
 	
 	// Successful filesize, we ack to server.
-	char fileSizeAck[FILE_SIZE_BUFF];
+	char fileSizeAck[FILE_SIZE_ACK_BUFF];
 	fileSizeAck[FILE_SIZE_KEY_B] = FILE_SIZE_KEY;
-	if(sendto(servSocket, fileSizeAck, FILE_SIZE_BUFF, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+	
+	// Random loss potential
+	if(!downloadManager->user->losePacket())
 	{
-		request.port = -4;
-		return; // The server will clean itself up after timeout. 
+		if(sendto(servSocket, fileSizeAck, FILE_SIZE_ACK_BUFF, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+		{
+			request.port = -4;
+			return; // The server will clean itself up after timeout. 
+		}
 	}
+	else
+		downloadManager->user->bufferMessage("Random loss: fileSize ack");
 	
 	if(recBytes == FILE_SIZE_BUFF && fileSize[FILE_SIZE_START] == '-' && fileSize[FILE_SIZE_START + 1] == '1')
 	{
@@ -255,7 +269,9 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 		return;
 	}
 	
-	std::string fSize(fileSize + FILE_SIZE_START, recBytes - FILE_SIZE_START);
+	std::string fSize = "";
+	for(int i = 0; fileSize[FILE_SIZE_START + i] != FILE_SIZE_END; i++)
+		fSize += fileSize[FILE_SIZE_START + i];
 	int fileS = std::stoi(fSize);
 	
 	std::vector<Octoblock*> blocks;
@@ -281,44 +297,44 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 			char buffer[OCTOLEG_MAX_SIZE + HEADER_SIZE + FILE_SIZE_BUFF]; // This is the size that works for everything, it doesnt matter that it might be bigger than any recv. 
 			int bytes;
 			
-			while(flag_running) // While for the timer.
+			Timer<Octoblock>* timeStandard = new Timer<Octoblock>(WAIT_TIME, blocks[current], &Octoblock::requestRetrans, servSocket);
+			bytes = recv(servSocket, buffer, sizeof(buffer), 0);
+			
+			// If anything gets out of recv we stop the timer
+			timeStandard->stop();
+			
+			if(timeStandard->attemptsFinished())
 			{
-				Timer<Octoblock>* timeStandard = new Timer<Octoblock>(WAIT_TIME, blocks[current], &Octoblock::requestRetrans, servSocket);
-				bytes = recv(servSocket, buffer, sizeof(buffer), 0);
-				
-				// If anything gets out of recv we stop the timer
-				timeStandard->stop();
-				
-				if(timeStandard->attemptsFinished())
+				request.port = -4;
+				return; // The server will clean itself up after timeout. 
+			}
+			else if(recBytes < 0)
+			{
+				request.port = -4;
+				return; // The server will clean itself up after timeout. 
+			}
+			else if(bytes > 0)
+			{
+				if(downloadManager->user->losePacket()) // Random loss potential
 				{
-					request.port = -4;
-					return; // The server will clean itself up after timeout. 
+					downloadManager->user->bufferMessage("Random loss: loop recv");
+					continue;
 				}
-				else if(recBytes < 0)
+				else if(bytes == FILE_SIZE_BUFF && buffer[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)// Sever waiting on fileSize ack still
 				{
-					request.port = -4;
-					return; // The server will clean itself up after timeout. 
-				}
-				else if(bytes > 0)
-				{
-					if(bytes == FILE_SIZE_BUFF && buffer[FILE_SIZE_KEY_B] == FILE_SIZE_KEY)// Sever waiting on fileSize ack still
-					{
-						if(sendto(servSocket, fileSizeAck, FILE_SIZE_BUFF, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
-						{
-							request.port = -4;
-							return; // The server will clean itself up after timeout. 
-						}
-					}
-					else if(!(blocks[current]->recvClient(buffer, bytes)))
+					if(sendto(servSocket, fileSizeAck, FILE_SIZE_BUFF, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
 					{
 						request.port = -4;
 						return; // The server will clean itself up after timeout. 
 					}
-
-					break;					
 				}
-				// If bytes are 0 that means the timer timed out and stopped the recv so it could send. In this case we want to keep looping. 
+				else if(!(blocks[current]->recvClient(buffer, bytes)))
+				{
+					request.port = -4;
+					return; // The server will clean itself up after timeout. 
+				}			
 			}
+			// If bytes are 0 that means the timer timed out and stopped the recv so it could send. In this case we want to keep looping. 
 		}
 	}
 	
@@ -335,11 +351,17 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 
 bool FileDownloader::fileSizeTimeout()
 {
-	if(sendto(servSocket, openerForTimeout, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+	// Random loss potential
+	if(!downloadManager->user->losePacket())
 	{
-		request.port = -4;
-		return false;
+		if(sendto(servSocket, openerForTimeout, OPENER_SIZE, MSG_NOSIGNAL, (struct sockaddr*)&address, sizeof(address)) == -1)
+		{
+			request.port = -4;
+			return false;
+		}
 	}
+	else
+		downloadManager->user->bufferMessage("Random loss: resend fileSize due to timeout");
 	
 	return true;
 }
@@ -356,7 +378,7 @@ void* FileDownloader::startFileDownloaderThread(void* fileDownloader)
 void FileDownloader::quit()
 {
 	flag_running = false;
-	shutdown(servSocket, SHUT_RDWR);
+	close(servSocket);
 }
 
 
