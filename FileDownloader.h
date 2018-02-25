@@ -51,7 +51,7 @@ class FileDownloader
 		void awaitRequest();
 		void fetchFileList(int recvPort);
 		void fileDownload(int recvPort);
-		void generalHandler(char* opener, char** data, int* dataSize);
+		void generalHandler(char* opener, char*& data, int* dataSize);
 		
 		bool fileSizeTimeout();
 		

@@ -17,7 +17,7 @@
 
 #define FILE_SIZE_BUFF		11
 #define FILE_SIZE_ACK_BUFF	3
-#define FILE_SIZE_KEY   	'F'
+#define FILE_SIZE_KEY   	5
 #define FILE_SIZE_KEY_B  	1
 #define FILE_SIZE_START		2
 #define FILE_SIZE_END		'\0'
@@ -44,10 +44,10 @@
 #define LEG_BYTE			2
 #define DATA_START_BYTE		3
 
-#define ACK_KEY				'A'
-#define ASK_ACK_KEY			'Q'
-#define ASK_TRANS_KEY		'T'
-#define OCTLEG_KEY			'O'
+#define ACK_KEY				0
+#define ASK_ACK_KEY			1
+#define ASK_TRANS_KEY		2
+#define OCTLEG_KEY			3
 
 // Forward declarations, only 1 used depending on if it is the Server or the User side. 
 class FileDownloader;

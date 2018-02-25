@@ -241,6 +241,7 @@ bool FileSender::generalHandler(int size, char* toSend)
 	if(!(current->serverSendData()))
 		return false;
 	
+	int g = 0;
 	while(flag_running)
 	{
 		std::string handleThis;
@@ -289,11 +290,17 @@ bool FileSender::generalHandler(int size, char* toSend)
 			current = blocks.front();
 			blocks.pop();
 			
+			std::cout << g << std::endl;
+			g++;
+			
 			// Do not transmit all the data here, this only occured because of a retrans call, and if there are more sending everything will result in more than 1 block out at a time. 
 			// It will also destroy the client. In this case the client will need to retrans for the 1 leg that caused this swich again. But, thats okay as this case is very rare.
 		}
 		else if(current->complete())
 		{
+			std::cout << g << std::endl;
+			g++;
+			
 			if(blocks.size() == 0)
 				break;
 			else

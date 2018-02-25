@@ -153,20 +153,22 @@ void FileDownloader::fetchFileList(int recvPort)
 	
 	char* data = NULL;
 	int dataSize = 0;
-	generalHandler(opener, &data, &dataSize);	
+	generalHandler(opener, data, &dataSize);	
 	
 	if(request.port == -4)
 		return;
 	
 	if(dataSize > 0)
 	{
-		std::string print(data, dataSize);
+		std::string print = "";
+		for(int i = 0; i < dataSize; i++)
+			print += data[i];
 		downloadManager->user->bufferMessage(print);
+		
+		//delete[] data; I have no idea why, but this crashes with an abort every single time, even though it is identical to fileDownload, which does not abort, so this will just remain a mem leak.
 	}
 	else
 		downloadManager->user->bufferMessage("No Files Hosted");
-	
-	delete[] data;
 }
 
 void FileDownloader::fileDownload(int recvPort)
@@ -186,7 +188,7 @@ void FileDownloader::fileDownload(int recvPort)
 	
 	char* data = NULL;
 	int dataSize = 0;
-	generalHandler(opener, &data, &dataSize);	
+	generalHandler(opener, data, &dataSize);	
 	
 	if(request.port == -4)
 		return;
@@ -199,14 +201,14 @@ void FileDownloader::fileDownload(int recvPort)
 		for(int i = 0; i < dataSize; i++)
 			outfile << data[i];
 		outfile.close();
+		
+		delete[] data;
 	}
 	else
 		downloadManager->user->bufferMessage(request.filename + " not found on " + request.ip);
-	
-	delete[] data;
 }
 
-void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
+void FileDownloader::generalHandler(char* opener, char*& data, int* dataSize)
 {
 	openerForTimeout = opener;
 	
@@ -234,7 +236,6 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 		fileSizeTimer->stop();
 		if(fileSizeTimer->attemptsFinished())
 		{
-			std::cout << "@@" << std::endl;
 			request.port = -4;
 			return; // The server will clean itself up after timeout. 
 		}
@@ -288,6 +289,7 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 	{
 		if(blocks[current]->complete())
 		{
+			std::cout << current << std::endl;
 			current++;
 			if(current >= (int)blocks.size())
 				break;
@@ -340,11 +342,11 @@ void FileDownloader::generalHandler(char* opener, char** data, int* dataSize)
 	
 	// We got all the data.
 	*dataSize = fileS;
-	*data = new char[fileS];
+	data = new char[fileS];
 	int pos = 0;
 	for(int i = 0; i < (int)blocks.size(); i++)
 	{
-		blocks[i]->getData(*data + pos);
+		blocks[i]->getData(data + pos);
 		pos += blocks[i]->getSize();
 	}
 }
