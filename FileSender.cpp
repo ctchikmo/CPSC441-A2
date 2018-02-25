@@ -155,8 +155,7 @@ void FileSender::handleFile()
 		sendNoFind[FILE_SIZE_START] = '-';
 		sendNoFind[FILE_SIZE_START + 1] = '1';
 
-		if(send(clientSocket, sendNoFind, FILE_SIZE_BUFF, MSG_NOSIGNAL) == -1) // Send the -1 filesize. 
-			return;
+		send(clientSocket, sendNoFind, FILE_SIZE_BUFF, MSG_NOSIGNAL); // Send the -1 filesize. 
 	}
 	else
 	{
