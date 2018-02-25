@@ -289,7 +289,6 @@ void FileDownloader::generalHandler(char* opener, char*& data, int* dataSize)
 	{
 		if(blocks[current]->complete())
 		{
-			std::cout << current << std::endl;
 			current++;
 			if(current >= (int)blocks.size())
 				break;

@@ -130,7 +130,7 @@ class Octoblock
 		char blockNum;
 		int size = 0;
 		Octoleg* legs[LEGS_IN_TRANSIT];
-		char acksNeeded = 0xFF; // Once this reaches 0 we are good to go. 
+		char acksNeeded = 0xFF; // Once this reaches 0 we are good to go. Acks needed for the downloaded means legs needed, but it serves the exact same purpose.
 		FileSender* sender; // We need to signal the sender mutex waiting on server input to wake up during a timeout call to requestAcks. Download uses shutdown(socket) to do this. 
 		
 		bool hasLegAck(char legNum);

@@ -170,7 +170,7 @@ void FileSender::handleFile()
 			if(generalHandler(size, toSend))
 				server->user->bufferMessage("Server done sending " + filename + " to client on port " + std::to_string(clientPort));
 			else
-				server->user->bufferMessage("Server had an error (or timeout) sending " + filename + " to client on port " + std::to_string(clientPort));
+				server->user->bufferMessage("Server had an error (or timeout) sending " + filename + " to client on port " + std::to_string(clientPort) + ". If client recieved than the last ack was lost and we timeout.");
 		}
 	}
 }
@@ -205,6 +205,12 @@ bool FileSender::generalHandler(int size, char* toSend)
 		{
 			while(dataQueue.size() == 0 && flag_running && !timeFileSizeAck->attemptsFinished())
 				pthread_cond_wait(&requestCond, &requestMutex);
+		
+			if(flag_continue)
+			{
+				flag_continue = false;
+				continue;
+			}
 		
 			if(timeFileSizeAck->attemptsFinished())
 			{
@@ -241,16 +247,28 @@ bool FileSender::generalHandler(int size, char* toSend)
 	if(!(current->serverSendData()))
 		return false;
 	
-	int g = 0;
+	Timer<Octoblock>* timeStandard;
 	while(flag_running)
 	{
 		std::string handleThis;
 	
-		Timer<Octoblock>* timeStandard = new Timer<Octoblock>(WAIT_TIME, current, &Octoblock::requestAcks, NO_SOC); // When we are not done and cant move on that mains we are only ever waiting on acks!
+		if(flag_continue)
+		{
+			flag_continue = false;
+		}
+		else
+			timeStandard = new Timer<Octoblock>(WAIT_TIME, current, &Octoblock::requestAcks, NO_SOC); // When we are not done and cant move on that mains we are only ever waiting on acks!
+		
 		pthread_mutex_lock(&requestMutex);
 		{
 			while(dataQueue.size() == 0 && flag_running && !timeStandard->attemptsFinished())
 				pthread_cond_wait(&requestCond, &requestMutex);
+			
+			if(flag_continue)
+			{
+				pthread_mutex_unlock(&requestMutex);
+				continue;
+			}
 			
 			if(timeStandard->attemptsFinished())
 			{
@@ -290,17 +308,11 @@ bool FileSender::generalHandler(int size, char* toSend)
 			current = blocks.front();
 			blocks.pop();
 			
-			std::cout << g << std::endl;
-			g++;
-			
 			// Do not transmit all the data here, this only occured because of a retrans call, and if there are more sending everything will result in more than 1 block out at a time. 
 			// It will also destroy the client. In this case the client will need to retrans for the 1 leg that caused this swich again. But, thats okay as this case is very rare.
 		}
 		else if(current->complete())
 		{
-			std::cout << g << std::endl;
-			g++;
-			
 			if(blocks.size() == 0)
 				break;
 			else
@@ -321,6 +333,7 @@ bool FileSender::fileSizeTimeout()
 {
 	pthread_mutex_lock(&requestMutex);
 	{
+		flag_continue = true;
 		pthread_cond_signal(&requestCond);
 	}
 	pthread_mutex_unlock(&requestMutex);

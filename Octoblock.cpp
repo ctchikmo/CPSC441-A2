@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <math.h>
 #include <pthread.h>
+#include <bitset>
 
 Octoblock::Octoblock(char blockNum, int size, FileDownloader* downloader):
 blockNum(blockNum),
@@ -56,7 +57,6 @@ bool Octoblock::recvClient(char* data, int size)
 	char block = data[BLOCK_BYTE];
 	char type = data[KEY_BYTE];
 	int legIndex = legNumToIndex(data[LEG_BYTE]);
-	std::cout << "legit " << legIndex << "::" << (int)block << "::" << (int)blockNum << std::endl;
 	
 	bool rv = false;
 	if(block != blockNum)
@@ -74,11 +74,12 @@ bool Octoblock::recvClient(char* data, int size)
 	{
 		if(!hasLegAck(data[LEG_BYTE]))
 		{
-			std::cout << "store leg" << std::endl;
 			acksNeeded &= ~data[LEG_BYTE];
 			rv = legs[legIndex]->clientRecvFileData(data + DATA_START_BYTE, size - DATA_START_BYTE);
 			rv &= legs[legIndex]->clientSendAck();	
 		}
+		else 
+			rv = true;
 	}
 	
 	return rv;
@@ -92,7 +93,6 @@ int Octoblock::recvServer(const char* data, int size)
 	char block = data[BLOCK_BYTE];
 	char type = data[KEY_BYTE];
 	int legIndex = legNumToIndex(data[LEG_BYTE]);
-	std::cout << "legit " << legIndex << "::" << (int)block << "::" << (int)blockNum << std::endl;
 	
 	bool rv = false;
 	if(block != blockNum) // Client finished, sent last ack and moved to next block. Last ack was lost, so server relizes here. If its last block this wont make it here, but client finished, so server has ungraceful end
@@ -101,13 +101,11 @@ int Octoblock::recvServer(const char* data, int size)
 	}
 	else if(type == ACK_KEY)
 	{
-		std::cout << "Ack key" << std::endl;
 		rv = true;
 		acksNeeded &= ~data[LEG_BYTE];
 	}
 	else if(type == ASK_TRANS_KEY) // This occurs either because we actually need a retransmit for that leg, or because the final ack (letting server move blocks) was lost & client is now on different block. 
 	{	
-		std::cout << "trans" << std::endl;
 		rv = legs[legIndex]->serverSendData();
 	}
 	
@@ -130,18 +128,19 @@ bool Octoblock::serverSendData()
 	return true;
 }
 
-bool Octoblock::requestAcks()
+bool Octoblock::requestAcks() // Called via the timer. 
 {	
+	bool rv = true;
 	pthread_mutex_lock(sender->getMutex());
 	{
+		for(int i = 0; i < LEGS_IN_TRANSIT; i++)
+			if(!hasLegAck(legs[i]->getLegNum()))
+				rv &= legs[i]->serverAskForAck();
+		
+		sender->flag_continue = true;
 		pthread_cond_signal(sender->getCond());
 	}
 	pthread_mutex_unlock(sender->getMutex());
-	
-	bool rv = true;
-	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
-		if(!hasLegAck(legs[i]->getLegNum()))
-			rv &= legs[i]->serverAskForAck();
 		
 	return rv;
 }
@@ -161,30 +160,9 @@ bool Octoblock::complete()
 	return acksNeeded == 0;
 }
 
-int Octoblock::getSize()
-{
-	return size;
-}
-
-void Octoblock::getData(char* store)
-{
-	int pos = 0;
-	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
-	{
-		for(int j = 0; j < legs[i]->getDataSize() && ((pos + j) < size); j++)
-		{
-			store[pos + j] = legs[i]->getData()[j];
-		}
-		
-		pos += legs[i]->getDataSize();
-		if(pos >= size)
-			break; // Can happen if there is a tiny block.
-	}	
-}
-
 bool Octoblock::hasLegAck(char legNum)
 {
-	return (acksNeeded && legNum) == 0; // If we have the ack than the && will return 0
+	return (acksNeeded & legNum) == 0; // If we have the ack than the && will return 0
 }
 
 int Octoblock::legNumToIndex(char legNum)
@@ -239,6 +217,27 @@ char Octoblock::indexToLegNum(int index)
 	}
 	
 	return -1;
+}
+
+int Octoblock::getSize()
+{
+	return size;
+}
+
+void Octoblock::getData(char* store)
+{
+	int pos = 0;
+	for(int i = 0; i < LEGS_IN_TRANSIT; i++)
+	{
+		for(int j = 0; j < legs[i]->getDataSize() && ((pos + j) < size); j++)
+		{
+			store[pos + j] = legs[i]->getData()[j];
+		}
+		
+		pos += legs[i]->getDataSize();
+		if(pos >= size)
+			break; // Can happen if there is a tiny block.
+	}	
 }
 
 void Octoblock::getOctoblocks(std::vector<Octoblock*>* store, int fileSize, FileDownloader* downloader)

@@ -78,8 +78,6 @@ bool Octoleg::serverAskForAck()
 	askAck[KEY_BYTE] = ASK_ACK_KEY;
 	askAck[LEG_BYTE] = legNum;
 	
-	std::cout << (int)blockNum << "::" << (int)legNum << std::endl;
-	
 	// Random loss potential 
 	if(!sender->server->user->losePacket())
 	{
@@ -137,8 +135,6 @@ bool Octoleg::clientAskForRetransmit()
 	askRetrans[BLOCK_BYTE] = blockNum;
 	askRetrans[KEY_BYTE] = ASK_TRANS_KEY;
 	askRetrans[LEG_BYTE] = legNum;
-	
-	std::cout << (int)blockNum << "::" << (int)legNum << std::endl;
 	
 	// Random loss potential 
 	if(!downloader->downloadManager->user->losePacket())
