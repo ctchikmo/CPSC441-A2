@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <sys/stat.h> // Check if file is directory
 #include <stdio.h>
+#include <unistd.h>
 
 Server::Server(int port, int threads):
 port(port),
@@ -245,19 +246,20 @@ void Server::reciveData()
 			exit(-1);
 		}
 		
+		FileSender* sender;
 		pthread_mutex_lock(&senderMutex);
 		{
 			while(senders.size() == 0)
 				pthread_cond_wait(&senderCond, &senderMutex);
 			
-			FileSender* sender = senders.front();
+			sender = senders.front();
 			senders.pop();
 			inProgress[sender->getThreadIndex()] = sender;
-			
-			// At this point we have the FileSender. We send the server socket as the client side is connected and expecting data from the source port assigned to this socket. Nothing else will be accepted. 
-			sender->beginRequest(clientSock, cliPort, fileSenderData);
 		}
 		pthread_mutex_unlock(&senderMutex);
+		
+		// At this point we have the FileSender. We send the server socket as the client side is connected and expecting data from the source port assigned to this socket. Nothing else will be accepted. 
+		sender->beginRequest(clientSock, cliPort, fileSenderData);
 	}
 }
 

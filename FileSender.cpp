@@ -156,6 +156,7 @@ void FileSender::handleFile()
 		sendNoFind[FILE_SIZE_START + 1] = '1';
 
 		send(clientSocket, sendNoFind, FILE_SIZE_BUFF, MSG_NOSIGNAL); // Send the -1 filesize. 
+		sleep(5); // Putting this here fixes a race condition bug that I have no idea how to fix, or why it happens. This is definitly not right to do, but its extra functionality anyways. 
 	}
 	else
 	{
